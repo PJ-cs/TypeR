@@ -6,12 +6,15 @@
 #define WAITING 02
 #define STOPPED 03
 #define AT_POS 04
+#define RUN_HOME 05
 
 //TODO make sure jumpers are set
-//TODO experiment with MAX_SPEED
+//TODO experiment with MAX_SPEED docu says less than 1000
 //TODO experiment with ACCELeration
 //TODO experiment with MAX_STEPS
 //TODO experiment with STEPS_PER_ROT
+//TODO experiment with HOMING_SPEED -/+ ?
+//TODO experiment with START_OFFSET_X
 
 // ink ribbon movement
 const byte DIR_PIN_A = 13; 
@@ -28,11 +31,15 @@ float nextAGoal;
 const byte DIR_PIN_X = 5;
 const byte STEP_PIN_X = 2;
 const float MAX_SPEED_X = 1000;
+const float HOMING_SPEED_X = MAX_SPEED_X /2;
+// how many steps to the right of stop
+// switch to take, where new home pos
+const float START_OFFSET_X = 100;
 const float ACCEL_X = 50;
 const int MAX_STEPS_X = 10000;
 int stateX;
 float currentXGoal;
-float nextAGoal;
+float nextXGoal;
 
 // line feed, vertical movement
 const byte DIR_PIN_Y = 6;
@@ -49,6 +56,7 @@ float nextYGoal;
 const byte DIR_PIN_Z = 7;
 const byte STEP_PIN_Z = 4;
 const float MAX_SPEED_Z = 1000;
+const float HOMING_SPEED_Z = MAX_SPEED_Z;
 //steps for one full rotation
 const int MAX_STEPS_Z = 10000;
 const float ACCEL_Z = 50;
@@ -106,14 +114,9 @@ void setup() {
 }
 
 void loop() {
-  if(startUp){
-    // move daisy wheel and horizontal movement to home position
-    // TODO
-  }
-  else{
-   recvCommand();
-    processNewCommand(); 
-  }
+  doStartUp(startUp);
+  recvCommand();
+  processNewCommand(); 
 
 }
 
@@ -172,4 +175,61 @@ void confirmCommandRecieved() {
 
 void allAreWaiting() {
   return stateA == WAITING && stateX == WAITING && stateY == WAITING && stateZ == WAITING;
+}
+
+void doStartUp(bool startUpParam){
+  if(startUpParam){
+    // move daisy wheel and horizontal movement to home position
+    switch(stateX){
+      case WAITING:
+        stepperX.setSpeed(HOMING_SPEED_X);
+        stateX = RUNNING;
+        break;
+      case RUNNING:
+        if(digitalRead(LIMIT_X_AXIS_PIN) == HIGH){
+          stepperX.stop();
+          stateX = AT_POS;
+          break;
+        }
+        stepperX.runSpeed();
+        break;
+      case AT_POS:
+        if(stateZ == AT_POS){
+          stepperX.move(START_OFFSET_X);
+          stateX = RUN_HOME;
+        }
+        break;
+      case RUN_HOME:
+        if(stepperX.distanceToGo() == 0){
+          startUp = false;
+          stateX = WAITING;
+          stateZ = WAITING;
+          stepperX.setCurrentPosition(0);
+        }        
+        break;
+      default:
+        break;
+    }
+    
+    switch(stateZ){
+      case WAITING:
+        if(stateX == AT_POS){
+          // if horizontal at stop switch, try rotate daisy wheel two times,
+          // will be physically blocked at 0 pos, then reset
+          stepperZ.moveTo(MAX_STEPS_Z*2); 
+          stateZ = RUNNING;
+        }
+        break;
+      case RUNNING:
+        if(stepperZ.distanceToGo() == 0){
+          stepperZ.setCurrentPosition(0);
+          stateZ = AT_POS;
+          break;
+        }
+        stepperZ.run();
+        break;
+      default:
+        break;
+    }
+  }
 }
