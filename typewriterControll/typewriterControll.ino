@@ -8,24 +8,26 @@
 #define AT_POS 04
 #define RUN_HOME 05
 
+
+
 //TODO make sure jumpers are set
 //TODO experiment with MAX_SPEED docu says less than 1000
 //TODO experiment with ACCELeration
 //TODO experiment with MAX_STEPS
 //TODO experiment with STEPS_PER_ROT
 //TODO experiment with HOMING_SPEED -/+ ?
-//TODO experiment with START_OFFSET_X
+//TODO experiment with START_OFFSET_X / Y
 
 // ink ribbon movement
 const byte DIR_PIN_A = 13; 
 const byte STEP_PIN_A = 12;
 const float MAX_SPEED_A = 1000; 
 const float ACCEL_A = 50;
-const float MAX_POS = 10000;
+//distance to move to have fresh ink ribbon
+const float INCR_SIZE_A = 10;
 const int MAX_STEPS_A = 10000;
 int stateA;
-float currentAGoal;
-float nextAGoal;
+//does not have goals, moves always same amount of steps
 
 // carriage, horizontal movement
 const byte DIR_PIN_X = 5;
@@ -38,8 +40,8 @@ const float START_OFFSET_X = 100;
 const float ACCEL_X = 50;
 const int MAX_STEPS_X = 10000;
 int stateX;
-float currentXGoal;
-float nextXGoal;
+int currentXGoal;
+int nextXGoal;
 
 // line feed, vertical movement
 const byte DIR_PIN_Y = 6;
@@ -49,26 +51,34 @@ const float ACCEL_Y = 50;
 // sheet height 
 const int MAX_STEPS_Y = 10000;
 int stateY;
-float currentYGoal;
-float nextYGoal;
+int currentYGoal;
+int nextYGoal;
 
 // daisy wheel
 const byte DIR_PIN_Z = 7;
 const byte STEP_PIN_Z = 4;
 const float MAX_SPEED_Z = 1000;
 const float HOMING_SPEED_Z = MAX_SPEED_Z;
-//steps for one full rotation
-const int MAX_STEPS_Z = 10000;
+//steps for one full rotation, 100 letters on wheel
+const int NO_LETTERS = 100;
+const int MAX_STEPS_Z = 100;
+// steps to take from startup jam position, to '.' as
+// current position, '.' is home position
+const float START_OFFSET_Z = 100;
 const float ACCEL_Z = 50;
 int stateZ;
-float currentZGoal;
-float nextZGoal;
+int currentZGoal;
+int nextZGoal;
 
 const byte LIMIT_X_AXIS_PIN = 9; 
 
 const byte STEPPER_ENABLE_PIN = 8;
 
 const byte HAMMER_PIN = 11;
+int currentHamGoal;
+int nextHamGoal;
+const byte MAX_HAM_LEVEL = 5;
+
 
 AccelStepper stepperA(AccelStepper::DRIVER, STEP_PIN_A, DIR_PIN_A);
 AccelStepper stepperX(AccelStepper::DRIVER, STEP_PIN_X, DIR_PIN_X);
@@ -114,9 +124,27 @@ void setup() {
 }
 
 void loop() {
-  doStartUp(startUp);
-  recvCommand();
-  processNewCommand(); 
+  doStartUp();
+
+  if(allAreWaiting()){
+    recvCommand();
+    processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, &currentHamGoal); 
+
+  }
+  // else if(allAtPosition()){
+  //   recvCommand();
+  //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
+
+  // }
+
+
+}
+
+void runStateMachines(){
+
+}
+
+void executeCommand(){
 
 }
 
@@ -152,35 +180,49 @@ void recvCommand() {
   }
 }
 
-void processNewCommand() {
+// writes goals from commands into variables
+void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, int *HamGoal) {
   if (newCommand == true) {
     char* commandTmp = strtok(receivedCommand, " ");
-    while (commandTmp != 0){
-      
-    }
+    for (int i = 0; i< 4 && commandTmp != 0; ){
+      switch(commandTmp[0]){
+        case 'X':
+          *XGoal = atoi(&commandTmp[1]);
+          break;
+        case 'Y':
+          *YGoal = atoi(&commandTmp[1]);
+          break;
+        case 'L':
+          *ZGoal = max(max(0, atoi(&commandTmp[1])), NO_LETTERS-1);
+          break;
+        case 'T':
+          *HamGoal = max(max(1, atoi(&commandTmp[1])), MAX_HAM_LEVEL);
+          break;
+        default:
+          break;
+      }
 
-      
-    //TODO
-    // command has format: X Y L T
-    // X/Y is position on X/Y-Axis 
-    // L is the Letter to print
-    // T is Thickness of the letter
+      commandTmp = strtok(NULL, " ");
+    }
     newCommand = false;
   }
 }
 
 void confirmCommandRecieved() {
-  Serial.write("ACK\n");
+  Serial.write("A");
   }
 
-void allAreWaiting() {
+bool allAreWaiting() {
   return stateA == WAITING && stateX == WAITING && stateY == WAITING && stateZ == WAITING;
 }
+bool allAtPosition(){
+  return stateA == AT_POS && stateX == AT_POS && stateY == AT_POS && stateZ == AT_POS;
+}
 
-void doStartUp(bool startUpParam){
-  if(startUpParam){
+void doStartUp(){
+  if(startUp){
     // move daisy wheel and horizontal movement to home position
-    switch(stateX){
+    switch(stateX){ //1.  horizontal movement
       case WAITING:
         stepperX.setSpeed(HOMING_SPEED_X);
         stateX = RUNNING;
@@ -205,7 +247,8 @@ void doStartUp(bool startUpParam){
           stateX = WAITING;
           stateZ = WAITING;
           stepperX.setCurrentPosition(0);
-        }        
+        } 
+        stepperX.run();       
         break;
       default:
         break;
@@ -222,9 +265,16 @@ void doStartUp(bool startUpParam){
         break;
       case RUNNING:
         if(stepperZ.distanceToGo() == 0){
+          stepperZ.move(START_OFFSET_Z);
+          stateZ = RUN_HOME;
+          break;
+        }
+        stepperZ.run();
+        break;
+      case RUN_HOME:
+        if(stepperZ.distanceToGo() == 0){
           stepperZ.setCurrentPosition(0);
           stateZ = AT_POS;
-          break;
         }
         stepperZ.run();
         break;
