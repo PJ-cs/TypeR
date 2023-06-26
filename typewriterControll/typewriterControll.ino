@@ -17,6 +17,7 @@
 //TODO experiment with STEPS_PER_ROT
 //TODO experiment with HOMING_SPEED -/+ ?
 //TODO experiment with START_OFFSET_X / Y
+//TODO experiment with INCR_SIZE_A
 
 // ink ribbon movement
 const byte DIR_PIN_A = 13; 
@@ -90,7 +91,7 @@ char receivedCommand[numChars];
 
 boolean newCommand = false;
 boolean startUp = true;
-
+long relative
 void setup() {
   // put your setup code here, to run once:
   //TODO check if needs to be inverted
@@ -129,7 +130,7 @@ void loop() {
   if(allAreWaiting()){
     recvCommand();
     processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, &currentHamGoal); 
-
+    startCommand();
   }
   // else if(allAtPosition()){
   //   recvCommand();
@@ -137,15 +138,61 @@ void loop() {
 
   // }
 
-
+  runStateMachines();
 }
 
 void runStateMachines(){
+  switch(stateA){ // TODO implement stop switch for ribbon sensor
+    case RUNNING:
+      if(stepperA.distanceToGo() == 0){
+        stateA = AT_POS;
+        break;
+      }      
+      stepperA.run()
+  }
+  switch(stateX){
+    case RUNNING:
+      if(stepperX.distanceToGo() == 0){
+        stateX = AT_POS;
+        break;
+      }
+      stepperX.run()
+  }
+  switch(stateY){
+    case RUNNING:
+      if(stepperY.distanceToGo() == 0){
+        stateY = AT_POS;
+        break;
+      }
+      stepperY.run()
+  }
+  switch(stateZ){
+    case RUNNING:
+      if(stepperZ.distanceToGo() == 0){
+        stateZ = AT_POS;
+        break;
+      }
+      stepperZ.run()
+  }
 
+  if(allAtPosition()){ //trigger hammer
+    // TODO find out how to implement without delay calls
+  }
 }
 
-void executeCommand(){
+void startCommand(){
+  stepperA.move(INCR_SIZE_A);
+  stateA = RUNNING;
+  
+  stepperX.moveTo(currentXGoal);
+  stateX = RUNNING;
 
+  stepperY.moveTo(currentYGoal);
+  stateY = RUNNING;
+
+  // TODO think about circular coordinate system for Z (daisy wheel) for faster movemnt
+  stepperZ.moveTo(currentZGoal);
+  stateY = RUNNING;
 }
 
 void recvCommand() {
