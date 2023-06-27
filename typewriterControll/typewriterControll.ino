@@ -22,8 +22,8 @@
 // ink ribbon movement
 const byte DIR_PIN_A = 13; 
 const byte STEP_PIN_A = 12;
-const float MAX_SPEED_A = 1000; 
-const float ACCEL_A = 50;
+const float MAX_SPEED_A = 10; 
+const float ACCEL_A = 5;
 //distance to move to have fresh ink ribbon
 const float INCR_SIZE_A = 10;
 const int MAX_STEPS_A = 10000;
@@ -34,12 +34,13 @@ int stateA;
 const byte DIR_PIN_X = 5;
 const byte STEP_PIN_X = 2;
 const float MAX_SPEED_X = 1000;
-const float HOMING_SPEED_X = MAX_SPEED_X /2;
+const float HOMING_SPEED_X = MAX_SPEED_X;
 // how many steps to the right of stop
 // switch to take, where new home pos
-const float START_OFFSET_X = 100;
-const float ACCEL_X = 50;
-const int MAX_STEPS_X = 10000;
+// if decrease OFFSET -> increase MAX steps by same amount
+const float START_OFFSET_X = 400;
+const float ACCEL_X = 10000;
+const int MAX_STEPS_X = 17500;
 int stateX;
 int currentXGoal;
 int nextXGoal;
@@ -48,7 +49,7 @@ int nextXGoal;
 const byte DIR_PIN_Y = 6;
 const byte STEP_PIN_Y = 3;
 const float MAX_SPEED_Y = 1000;
-const float ACCEL_Y = 50;
+const float ACCEL_Y = 10000;
 // sheet height 
 const int MAX_STEPS_Y = 10000;
 int stateY;
@@ -58,15 +59,15 @@ int nextYGoal;
 // daisy wheel
 const byte DIR_PIN_Z = 7;
 const byte STEP_PIN_Z = 4;
-const float MAX_SPEED_Z = 1000;
+const float MAX_SPEED_Z = 700;
 const float HOMING_SPEED_Z = MAX_SPEED_Z;
+const int NUMBER_LETTERS = 100;
 //steps for one full rotation, 100 letters on wheel
-const int NO_LETTERS = 100;
 const int MAX_STEPS_Z = 100;
 // steps to take from startup jam position, to '.' as
 // current position, '.' is home position
 const float START_OFFSET_Z = 100;
-const float ACCEL_Z = 50;
+const float ACCEL_Z = 10000;
 int stateZ;
 int currentZGoal;
 int nextZGoal;
@@ -91,11 +92,10 @@ char receivedCommand[numChars];
 
 boolean newCommand = false;
 boolean startUp = true;
-long relative
+
 void setup() {
-  // put your setup code here, to run once:
-  //TODO check if needs to be inverted
   pinMode(STEPPER_ENABLE_PIN, OUTPUT);
+  // HIGH means disabled
   digitalWrite(STEPPER_ENABLE_PIN, HIGH);
 
   pinMode(HAMMER_PIN, OUTPUT);
@@ -103,6 +103,7 @@ void setup() {
 
   pinMode(LIMIT_X_AXIS_PIN, INPUT);
 
+  
   stepperA.setMaxSpeed(MAX_SPEED_A);
   stepperA.setAcceleration(ACCEL_A);
   stateA = WAITING;
@@ -115,8 +116,8 @@ void setup() {
   stepperY.setAcceleration(ACCEL_Y);
   stateY = WAITING;
 
-  stepperZ.setMaxSpeed(MAX_SPEED_Z);
-  stepperZ.setAcceleration(ACCEL_Z);
+  // stepperZ.setMaxSpeed(MAX_SPEED_Z);
+  // stepperZ.setAcceleration(ACCEL_Z);
   stateZ = WAITING;
 
 
@@ -124,22 +125,38 @@ void setup() {
   Serial.println("<Arduino is ready>");
 }
 
-void loop() {
-  doStartUp();
-
-  if(allAreWaiting()){
-    recvCommand();
-    processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, &currentHamGoal); 
-    startCommand();
+// TODO remove, for testing
+boolean start = true;
+void loop(){
+  if(start){
+    digitalWrite(STEPPER_ENABLE_PIN, LOW);
+    stepperZ.moveTo(10);
+    stepperZ.setSpeed(10);
+    start = false;
   }
-  // else if(allAtPosition()){
-  //   recvCommand();
-  //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
-
-  // }
-
-  runStateMachines();
+  else if (stepperZ.run()){
+    stepperZ.run();
+  } else {
+    digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+  
+  }
 }
+// void loop() {
+//   doStartUp();
+
+//   if(allAreWaiting()){
+//     recvCommand();
+//     processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, &currentHamGoal); 
+//     startCommand();
+//   }
+//   // else if(allAtPosition()){
+//   //   recvCommand();
+//   //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
+
+//   // }
+
+//   runStateMachines();
+// }
 
 void runStateMachines(){
   switch(stateA){ // TODO implement stop switch for ribbon sensor
@@ -148,7 +165,7 @@ void runStateMachines(){
         stateA = AT_POS;
         break;
       }      
-      stepperA.run()
+      stepperA.run();
   }
   switch(stateX){
     case RUNNING:
@@ -156,7 +173,7 @@ void runStateMachines(){
         stateX = AT_POS;
         break;
       }
-      stepperX.run()
+      stepperX.run();
   }
   switch(stateY){
     case RUNNING:
@@ -164,7 +181,7 @@ void runStateMachines(){
         stateY = AT_POS;
         break;
       }
-      stepperY.run()
+      stepperY.run();
   }
   switch(stateZ){
     case RUNNING:
@@ -172,7 +189,7 @@ void runStateMachines(){
         stateZ = AT_POS;
         break;
       }
-      stepperZ.run()
+      stepperZ.run();
   }
 
   if(allAtPosition()){ //trigger hammer
@@ -240,7 +257,7 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, int *HamGoal) {
           *YGoal = atoi(&commandTmp[1]);
           break;
         case 'L':
-          *ZGoal = max(max(0, atoi(&commandTmp[1])), NO_LETTERS-1);
+          *ZGoal = max(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1);
           break;
         case 'T':
           *HamGoal = max(max(1, atoi(&commandTmp[1])), MAX_HAM_LEVEL);
