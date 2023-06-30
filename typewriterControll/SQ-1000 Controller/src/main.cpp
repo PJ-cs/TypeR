@@ -10,7 +10,6 @@
 #define RUN_HOME 05
 
 
-
 //TODO make sure jumpers are set
 //TODO experiment with MAX_SPEED docu says less than 1000
 //TODO experiment with ACCELeration
@@ -22,72 +21,81 @@
 //TODO replace onst with DEFINE for more efficiency and consistency
 
 // ink ribbon movement
-const byte DIR_PIN_A = 13; 
-const byte STEP_PIN_A = 12;
-const float MAX_SPEED_A = 10; 
-const float ACCEL_A = 5;
+#define DIR_PIN_A 13 
+#define STEP_PIN_A 12
+#define MAX_SPEED_A 10.0
+#define ACCEL_A 5
 //distance to move to have fresh ink ribbon
-const float INCR_SIZE_A = 10;
-const int MAX_STEPS_A = 10000;
-int stateA;
+#define INCR_SIZE_A 10
+#define MAX_STEPS_A 10000
 //does not have goals, moves always same amount of steps
 
 // carriage, horizontal movement
-const byte DIR_PIN_X = 5;
-const byte STEP_PIN_X = 2;
-const float MAX_SPEED_X = 1000;
-const float HOMING_SPEED_X = MAX_SPEED_X;
+#define DIR_PIN_X 5
+#define STEP_PIN_X 2
+#define MAX_SPEED_X 1000.0
+#define HOMING_SPEED_X 1000
 // how many steps to the right of stop
 // switch to take, where new home pos
 // if decrease OFFSET -> increase MAX steps by same amount
-const float START_OFFSET_X = 400;
-const float ACCEL_X = 10000;
-const int MAX_STEPS_X = 17500;
+#define START_OFFSET_X 400
+#define ACCEL_X 10000
+#define MAX_STEPS_X 17500
+
+// line feed, vertical movement
+#define DIR_PIN_Y 6
+#define STEP_PIN_Y 3
+#define MAX_SPEED_Y 1000.0
+#define ACCEL_Y 10000
+// sheet height 
+#define MAX_STEPS_Y 10000
+
+// daisy wheel
+#define DIR_PIN_Z 7
+#define STEP_PIN_Z 4
+#define MAX_SPEED_Z 700.0
+#define HOMING_SPEED_Z 700
+#define NUMBER_LETTERS 100
+//steps for one full rotation, 100 letters on wheel
+#define MAX_STEPS_Z 100
+// steps to take from startup jam position, to '.' as
+// current position, '.' is home position
+#define START_OFFSET_Z 100
+#define ACCEL_Z 10000
+
+#define LIMIT_X_AXIS_PIN 9 
+
+#define STEPPER_ENABLE_PIN 8
+
+#define HAMMER_PIN 11
+#define MAX_HAM_LEVEL 5
+//minimal time to wait until next hammer hit
+#define HAM_WAIT_MS 30
+//minimal activiation time of hammer pin to hit paper
+#define HAM_ACT_MS 15
+
+int stateA;
+AccelStepper stepperA(AccelStepper::DRIVER, STEP_PIN_A, DIR_PIN_A);
+
 int stateX;
 int currentXGoal;
 int nextXGoal;
+AccelStepper stepperX(AccelStepper::DRIVER, STEP_PIN_X, DIR_PIN_X);
 
-// line feed, vertical movement
-const byte DIR_PIN_Y = 6;
-const byte STEP_PIN_Y = 3;
-const float MAX_SPEED_Y = 1000;
-const float ACCEL_Y = 10000;
-// sheet height 
-const int MAX_STEPS_Y = 10000;
 int stateY;
 int currentYGoal;
 int nextYGoal;
+AccelStepper stepperY(AccelStepper::DRIVER, STEP_PIN_Y, DIR_PIN_Y);
 
-// daisy wheel
-const byte DIR_PIN_Z = 7;
-const byte STEP_PIN_Z = 4;
-const float MAX_SPEED_Z = 700;
-const float HOMING_SPEED_Z = MAX_SPEED_Z;
-const int NUMBER_LETTERS = 100;
-//steps for one full rotation, 100 letters on wheel
-const int MAX_STEPS_Z = 100;
-// steps to take from startup jam position, to '.' as
-// current position, '.' is home position
-const float START_OFFSET_Z = 100;
-const float ACCEL_Z = 10000;
 int stateZ;
 int currentZGoal;
 int nextZGoal;
+AccelStepper stepperZ(AccelStepper::DRIVER, STEP_PIN_Z, DIR_PIN_Z);
 
-const byte LIMIT_X_AXIS_PIN = 9; 
-
-const byte STEPPER_ENABLE_PIN = 8;
-
-const byte HAMMER_PIN = 11;
+int stateHam;
 int currentHamGoal;
 int nextHamGoal;
-const byte MAX_HAM_LEVEL = 5;
 
-
-AccelStepper stepperA(AccelStepper::DRIVER, STEP_PIN_A, DIR_PIN_A);
-AccelStepper stepperX(AccelStepper::DRIVER, STEP_PIN_X, DIR_PIN_X);
-AccelStepper stepperY(AccelStepper::DRIVER, STEP_PIN_Y, DIR_PIN_Y);
-AccelStepper stepperZ(AccelStepper::DRIVER, STEP_PIN_Z, DIR_PIN_Z);
 
 const byte numChars = 32;
 char receivedCommand[numChars];
@@ -99,11 +107,11 @@ boolean startUp = true;
 void runStateMachines();
 void startCommand();
 void recvCommand();
-void processNewCommand();
+void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, int *HamGoal);
 void confirmCommandRecieved();
 bool allAreWaiting();
 bool allAtPosition();
-void doStartup();
+void doStartUp();
 
 void setup() {
   pinMode(STEPPER_ENABLE_PIN, OUTPUT);
@@ -128,10 +136,11 @@ void setup() {
   stepperY.setAcceleration(ACCEL_Y);
   stateY = WAITING;
 
-  // stepperZ.setMaxSpeed(MAX_SPEED_Z);
-  // stepperZ.setAcceleration(ACCEL_Z);
+  stepperZ.setMaxSpeed(MAX_SPEED_Z);
+  stepperZ.setAcceleration(ACCEL_Z);
   stateZ = WAITING;
 
+  stateHam = WAITING;
 
   Serial.begin(9600);
   Serial.println("<Arduino is ready>");
@@ -139,38 +148,38 @@ void setup() {
 
 
 // TODO remove, for testing
-boolean start = true;
-
-void loop(){
-  if(start){
-    digitalWrite(STEPPER_ENABLE_PIN, LOW);
-    stepperZ.moveTo(10);
-    stepperZ.setSpeed(10);
-    start = false;
-  }
-  else if (stepperZ.run()){
-    stepperZ.run();
-  } else {
-    digitalWrite(STEPPER_ENABLE_PIN, HIGH);
-  
-  }
-}
-// void loop() {
-//   doStartUp();
-
-//   if(allAreWaiting()){
-//     recvCommand();
-//     processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, &currentHamGoal); 
-//     startCommand();
+// void loop(){
+//   if(startUp){
+//     digitalWrite(STEPPER_ENABLE_PIN, LOW);
+//     stepperZ.moveTo(10);
+//     stepperZ.setSpeed(10);
+//     startUp = false;
 //   }
-//   // else if(allAtPosition()){
-//   //   recvCommand();
-//   //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
-
-//   // }
-
-//   runStateMachines();
+//   else if (stepperZ.run()){
+//     stepperZ.run();
+//   } else {
+//     digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+  
+//   }
 // }
+
+
+void loop() {
+  doStartUp();
+
+  if(allAreWaiting()){
+    recvCommand();
+    processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, &currentHamGoal); 
+    startCommand();
+  }
+  // else if(allAtPosition()){
+  //   recvCommand();
+  //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
+
+  // }
+
+  runStateMachines();
+}
 
 void runStateMachines(){
   switch(stateA){ // TODO implement stop switch for ribbon sensor
@@ -208,6 +217,7 @@ void runStateMachines(){
 
   if(allAtPosition()){ //trigger hammer
     // TODO find out how to implement without delay calls
+
   }
 }
 
@@ -221,7 +231,15 @@ void startCommand(){
   stepperY.moveTo(currentYGoal);
   stateY = RUNNING;
 
-  // TODO think about circular coordinate system for Z (daisy wheel) for faster movemnt
+  // circular coordinate system for Z (daisy wheel) for faster movemnt
+  if(abs(currentZGoal - stepperZ.currentPosition()) > MAX_STEPS_Z / 2){
+    if(currentZGoal > stepperZ.currentPosition()){
+      stepperZ.setCurrentPosition(stepperZ.currentPosition()+ MAX_STEPS_Z);
+    }
+    else{
+      stepperZ.setCurrentPosition(stepperZ.currentPosition()- MAX_STEPS_Z);
+    }
+  }
   stepperZ.moveTo(currentZGoal);
   stateY = RUNNING;
 }
@@ -291,7 +309,8 @@ void confirmCommandRecieved() {
   }
 
 bool allAreWaiting() {
-  return stateA == WAITING && stateX == WAITING && stateY == WAITING && stateZ == WAITING;
+  return stateA == WAITING && stateX == WAITING && stateY == WAITING && stateZ == WAITING &&
+  stateHam == WAITING;
 }
 bool allAtPosition(){
   return stateA == AT_POS && stateX == AT_POS && stateY == AT_POS && stateZ == AT_POS;
@@ -325,6 +344,7 @@ void doStartUp(){
           stateX = WAITING;
           stateZ = WAITING;
           stepperX.setCurrentPosition(0);
+          break;
         } 
         stepperX.run();       
         break;
