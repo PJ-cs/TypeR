@@ -8,6 +8,7 @@
 #define STOPPED 03
 #define AT_POS 04
 #define RUN_HOME 05
+#define COOL_DOWN 06
 
 
 //TODO make sure jumpers are set
@@ -68,9 +69,9 @@
 #define STEPPER_ENABLE_PIN 8
 
 #define HAMMER_PIN 11
-#define MAX_HAM_LEVEL 5
+#define NUM_O_HAM_LEVEL 5
 //minimal time to wait until next hammer hit
-#define HAM_WAIT_MS 30
+#define HAM_COOL_MS 30
 //minimal activiation time of hammer pin to hit paper
 #define HAM_ACT_MS 15
 
@@ -93,24 +94,29 @@ int nextZGoal;
 AccelStepper stepperZ(AccelStepper::DRIVER, STEP_PIN_Z, DIR_PIN_Z);
 
 int stateHam;
-int currentHamGoal;
-int nextHamGoal;
+unsigned long startMillis;
+// contains the tupel (#hits, strength)
+uint8_t currentHamGoal[2];
+uint8_t nextHamGoal[2];
+// five pairs of (#hits, strength[200-250])
+const uint8_t hamLevels[5][2] = {{1, 200}, {1, 230}, {1, 250}, {2, 250}, {3, 250}};
 
 
-const byte numChars = 32;
+const uint8_t numChars = 32;
 char receivedCommand[numChars];
 
-boolean newCommand = false;
+boolean newCommandToRead = false;
+boolean newGoalsSet = false;
 boolean startUp = true;
 
 // put function declarations here:
 void runStateMachines();
 void startCommand();
 void recvCommand();
-void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, int *HamGoal);
+void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *HamGoal);
 void confirmCommandRecieved();
 bool allAreWaiting();
-bool allAtPosition();
+bool allStepperAtPosition();
 void doStartUp();
 
 void setup() {
@@ -169,7 +175,7 @@ void loop() {
 
   if(allAreWaiting()){
     recvCommand();
-    processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, &currentHamGoal); 
+    processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
     startCommand();
   }
   // else if(allAtPosition()){
@@ -215,33 +221,63 @@ void runStateMachines(){
       stepperZ.run();
   }
 
-  if(allAtPosition()){ //trigger hammer
+  if(allStepperAtPosition()){ //trigger hammer
     // TODO find out how to implement without delay calls
-
+    switch(stateHam){
+      case WAITING:
+        if(currentHamGoal[0] > 0){
+          stateHam = RUNNING;
+          analogWrite(HAMMER_PIN, currentHamGoal[1]);
+          startMillis = millis();
+          currentHamGoal[0]--;
+        }
+        else{
+          stateHam = WAITING;
+          stateA = WAITING;
+          stateX = WAITING;
+          stateY = WAITING;
+          stateZ = WAITING;
+        }
+        break;
+      case RUNNING:
+        if(millis() - startMillis >= HAM_ACT_MS){
+          analogWrite(HAMMER_PIN, 0);
+          stateHam = COOL_DOWN;
+          startMillis = millis();
+        }
+        break;
+      case COOL_DOWN:
+        if(millis() - startMillis >= HAM_COOL_MS){
+          stateHam = WAITING;
+        }
+        break;
+    }
   }
 }
 
 void startCommand(){
-  stepperA.move(INCR_SIZE_A);
-  stateA = RUNNING;
-  
-  stepperX.moveTo(currentXGoal);
-  stateX = RUNNING;
+  if(newGoalsSet){
+    stepperA.move(INCR_SIZE_A);
+    stateA = RUNNING;
+    
+    stepperX.moveTo(currentXGoal);
+    stateX = RUNNING;
 
-  stepperY.moveTo(currentYGoal);
-  stateY = RUNNING;
+    stepperY.moveTo(currentYGoal);
+    stateY = RUNNING;
 
-  // circular coordinate system for Z (daisy wheel) for faster movemnt
-  if(abs(currentZGoal - stepperZ.currentPosition()) > MAX_STEPS_Z / 2){
-    if(currentZGoal > stepperZ.currentPosition()){
-      stepperZ.setCurrentPosition(stepperZ.currentPosition()+ MAX_STEPS_Z);
+    // circular coordinate system for Z (daisy wheel) for faster movemnt
+    if(abs(currentZGoal - stepperZ.currentPosition()) > MAX_STEPS_Z / 2){
+      if(currentZGoal > stepperZ.currentPosition()){
+        stepperZ.setCurrentPosition(stepperZ.currentPosition()+ MAX_STEPS_Z);
+      }
+      else{
+        stepperZ.setCurrentPosition(stepperZ.currentPosition()- MAX_STEPS_Z);
+      }
     }
-    else{
-      stepperZ.setCurrentPosition(stepperZ.currentPosition()- MAX_STEPS_Z);
-    }
+    stepperZ.moveTo(currentZGoal);
+    stateY = RUNNING;
   }
-  stepperZ.moveTo(currentZGoal);
-  stateY = RUNNING;
 }
 
 void recvCommand() {
@@ -251,7 +287,7 @@ void recvCommand() {
   char endMarker = '>';
   char rc;
 
-  while (Serial.available() > 0 && newCommand == false) {
+  while (Serial.available() > 0 && newCommandToRead == false) {
       rc = Serial.read();
 
       if (recvInProgress == true) {
@@ -266,7 +302,7 @@ void recvCommand() {
               receivedCommand[ndx] = '\0'; // terminate the string
               recvInProgress = false;
               ndx = 0;
-              newCommand = true;
+              newCommandToRead = true;
           }
       }
 
@@ -277,8 +313,8 @@ void recvCommand() {
 }
 
 // writes goals from commands into variables
-void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, int *HamGoal) {
-  if (newCommand == true) {
+void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
+  if (newCommandToRead == true) {
     char* commandTmp = strtok(receivedCommand, " ");
     for (int i = 0; i< 4 && commandTmp != 0; ){
       switch(commandTmp[0]){
@@ -292,7 +328,9 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, int *HamGoal) {
           *ZGoal = max(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1);
           break;
         case 'T':
-          *HamGoal = max(max(1, atoi(&commandTmp[1])), MAX_HAM_LEVEL);
+          uint8_t hamLevel = max(max(0, atoi(&commandTmp[1])), NUM_O_HAM_LEVEL-1);
+          hamGoal[0] = hamLevels[hamLevel][0];
+          hamGoal[1] = hamLevels[hamLevel][1];
           break;
         default:
           break;
@@ -300,7 +338,8 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, int *HamGoal) {
 
       commandTmp = strtok(NULL, " ");
     }
-    newCommand = false;
+    newCommandToRead = false;
+    newGoalsSet = true;
   }
 }
 
@@ -312,7 +351,7 @@ bool allAreWaiting() {
   return stateA == WAITING && stateX == WAITING && stateY == WAITING && stateZ == WAITING &&
   stateHam == WAITING;
 }
-bool allAtPosition(){
+bool allStepperAtPosition(){
   return stateA == AT_POS && stateX == AT_POS && stateY == AT_POS && stateZ == AT_POS;
 }
 
