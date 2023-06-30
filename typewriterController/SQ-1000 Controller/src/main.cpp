@@ -107,7 +107,6 @@ char receivedCommand[numChars];
 
 boolean newCommandToRead = false;
 boolean newGoalsSet = false;
-boolean startUp = true;
 
 // put function declarations here:
 void runStateMachines();
@@ -222,7 +221,8 @@ void runStateMachines(){
   }
 
   if(allStepperAtPosition()){ //trigger hammer
-    // TODO find out how to implement without delay calls
+    //switch of stepper motor for the duration of hammer
+    digitalWrite(STEPPER_ENABLE_PIN, HIGH);
     switch(stateHam){
       case WAITING:
         if(currentHamGoal[0] > 0){
@@ -257,6 +257,7 @@ void runStateMachines(){
 
 void startCommand(){
   if(newGoalsSet){
+    digitalWrite(STEPPER_ENABLE_PIN, LOW);
     stepperA.move(INCR_SIZE_A);
     stateA = RUNNING;
     
@@ -277,6 +278,8 @@ void startCommand(){
     }
     stepperZ.moveTo(currentZGoal);
     stateY = RUNNING;
+
+    newGoalsSet = false;
   }
 }
 
@@ -356,6 +359,7 @@ bool allStepperAtPosition(){
 }
 
 void doStartUp(){
+  static boolean startUp = true;
   if(startUp){
     // move daisy wheel and horizontal movement to home position
     switch(stateX){ //1.  horizontal movement

@@ -1,6 +1,7 @@
 class Controller
 {
 private:
+    
     void doStartUP();
 
 public:
