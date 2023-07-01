@@ -1,7 +1,0 @@
-README.md
-pyproject.toml
-typewriterService.py
-typewriterService.egg-info/PKG-INFO
-typewriterService.egg-info/SOURCES.txt
-typewriterService.egg-info/dependency_links.txt
-typewriterService.egg-info/top_level.txt

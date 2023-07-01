@@ -42,6 +42,7 @@
 #define START_OFFSET_X 400
 #define ACCEL_X 10000
 #define MAX_STEPS_X 17500
+#define STEPS_PER_PIXEL_X 20
 
 // line feed, vertical movement
 #define DIR_PIN_Y 6
@@ -50,6 +51,7 @@
 #define ACCEL_Y 10000
 // sheet height 
 #define MAX_STEPS_Y 10000
+#define STEPS_PER_PIXEL_Y 20
 
 // daisy wheel
 #define DIR_PIN_Z 7
