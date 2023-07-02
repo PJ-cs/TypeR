@@ -1,0 +1,1 @@
+BLOB_STORE_URL = "gdrive://1xfnkAm5QsUc9l2H4pWZbaOO4P7DbGLv1"
