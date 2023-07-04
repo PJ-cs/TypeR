@@ -24,12 +24,13 @@
 // ink ribbon movement
 #define DIR_PIN_A 13 
 #define STEP_PIN_A 12
-#define MAX_SPEED_A 10.0
-#define ACCEL_A 5
+#define MAX_SPEED_A 1000.0
+#define ACCEL_A 10000
 //distance to move to have fresh ink ribbon
-#define INCR_SIZE_A 10
-#define MAX_STEPS_A 10000
 //does not have goals, moves always same amount of steps
+#define INCR_SIZE_A 10
+// pin for ribbon sensor, triggers if ribbon is empty
+#define LIMIT_A_AXIS_PIN 10
 
 // carriage, horizontal movement
 #define DIR_PIN_X 5
@@ -43,6 +44,7 @@
 #define ACCEL_X 10000
 #define MAX_STEPS_X 17500
 #define STEPS_PER_PIXEL_X 20
+#define LIMIT_X_AXIS_PIN 9 
 
 // line feed, vertical movement
 #define DIR_PIN_Y 6
@@ -65,8 +67,6 @@
 // current position, '.' is home position
 #define START_OFFSET_Z 100
 #define ACCEL_Z 10000
-
-#define LIMIT_X_AXIS_PIN 9 
 
 #define STEPPER_ENABLE_PIN 8
 
@@ -122,7 +122,7 @@ void doStartUp();
 
 void setup() {
   pinMode(STEPPER_ENABLE_PIN, OUTPUT);
-  // HIGH means disabled
+  // HIGH means disabled for the enable pin
   digitalWrite(STEPPER_ENABLE_PIN, HIGH);
 
   pinMode(HAMMER_PIN, OUTPUT);
@@ -154,39 +154,39 @@ void setup() {
 }
 
 
-// TODO remove, for testing
-// void loop(){
-//   if(startUp){
-//     digitalWrite(STEPPER_ENABLE_PIN, LOW);
-//     stepperZ.moveTo(10);
-//     stepperZ.setSpeed(10);
-//     startUp = false;
-//   }
-//   else if (stepperZ.run()){
-//     stepperZ.run();
-//   } else {
-//     digitalWrite(STEPPER_ENABLE_PIN, HIGH);
-  
-//   }
-// }
-
-
-void loop() {
-  doStartUp();
-
-  if(allAreWaiting()){
-    recvCommand();
-    processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
-    startCommand();
+//TODO remove, for testing
+boolean startUp = true;
+void loop(){
+  if(startUp){
+    digitalWrite(STEPPER_ENABLE_PIN, LOW);
+    stepperA.moveTo(INCR_SIZE_A);
+    startUp = false;
   }
-  // else if(allAtPosition()){
-  //   recvCommand();
-  //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
-
-  // }
-
-  runStateMachines();
+  else if (stepperA.run()){
+    stepperA.run();
+  } else {
+    digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+  
+  }
 }
+
+
+// void loop() {
+//   doStartUp();
+
+//   if(allAreWaiting()){
+//     recvCommand();
+//     processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
+//     startCommand();
+//   }
+//   // else if(allAtPosition()){
+//   //   recvCommand();
+//   //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
+
+//   // }
+
+//   runStateMachines();
+// }
 
 void runStateMachines(){
   switch(stateA){ // TODO implement stop switch for ribbon sensor

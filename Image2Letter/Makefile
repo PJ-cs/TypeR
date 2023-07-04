@@ -12,7 +12,7 @@ venv:
 	pre-commit autoupdate
 
 # Init
-.ONESHELL
+.ONESHELL:
 init: venv
 	pip install -r requirements.txt && \
 	dvc init && \
