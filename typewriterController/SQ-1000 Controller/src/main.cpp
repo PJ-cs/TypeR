@@ -28,9 +28,9 @@
 #define ACCEL_A 10000
 //distance to move to have fresh ink ribbon
 //does not have goals, moves always same amount of steps
-#define INCR_SIZE_A 10
+#define INCR_SIZE_A -5
 // pin for ribbon sensor, triggers if ribbon is empty
-#define LIMIT_A_AXIS_PIN 10
+#define LIMIT_A_AXIS_PIN -1
 
 // carriage, horizontal movement
 #define DIR_PIN_X 5
@@ -58,15 +58,16 @@
 // daisy wheel
 #define DIR_PIN_Z 7
 #define STEP_PIN_Z 4
-#define MAX_SPEED_Z 700.0
+#define MAX_SPEED_Z 10000.0
 #define HOMING_SPEED_Z 700
 #define NUMBER_LETTERS 100
 //steps for one full rotation, 100 letters on wheel
 #define MAX_STEPS_Z 100
+#define STEP_SIZE_Z  8
 // steps to take from startup jam position, to '.' as
 // current position, '.' is home position
 #define START_OFFSET_Z 100
-#define ACCEL_Z 10000
+#define ACCEL_Z 15000
 
 #define STEPPER_ENABLE_PIN 8
 
@@ -129,6 +130,7 @@ void setup() {
   analogWrite(HAMMER_PIN, 0);
 
   pinMode(LIMIT_X_AXIS_PIN, INPUT);
+  pinMode(LIMIT_A_AXIS_PIN, INPUT);
 
   
   stepperA.setMaxSpeed(MAX_SPEED_A);
@@ -150,23 +152,33 @@ void setup() {
   stateHam = WAITING;
 
   Serial.begin(9600);
+  delay(500);
   Serial.println("<Arduino is ready>");
 }
 
 
 //TODO remove, for testing
 boolean startUp = true;
+int location = 100;
 void loop(){
   if(startUp){
     digitalWrite(STEPPER_ENABLE_PIN, LOW);
-    stepperA.moveTo(INCR_SIZE_A);
+    stepperZ.moveTo(location*STEP_SIZE_Z);
     startUp = false;
+    if(location == 0){
+      location = 100;
+    }
+    else
+      location = 0;
   }
-  else if (stepperA.run()){
-    stepperA.run();
+  else if (stepperZ.distanceToGo() != 0){
+    stepperZ.run();
   } else {
+    Serial.println("Run finished");
+    Serial.print(location);
     digitalWrite(STEPPER_ENABLE_PIN, HIGH);
-  
+    delay(2000);
+    startUp = true;
   }
 }
 
