@@ -67,7 +67,7 @@
 // steps to take from startup jam position, to '.' as
 // current position, '.' is home position
 #define START_OFFSET_Z 100
-#define ACCEL_Z 15000
+#define ACCEL_Z 5000
 
 #define STEPPER_ENABLE_PIN 8
 
@@ -159,14 +159,14 @@ void setup() {
 
 //TODO remove, for testing
 boolean startUp = true;
-int location = 100;
+int location = 1;
 void loop(){
   if(startUp){
     digitalWrite(STEPPER_ENABLE_PIN, LOW);
     stepperZ.moveTo(location*STEP_SIZE_Z);
     startUp = false;
     if(location == 0){
-      location = 100;
+      location = 1;
     }
     else
       location = 0;
