@@ -283,7 +283,7 @@ void recvCommand() {
   while (Serial.available() > 0 && newCommandToRead == false) {
       rc = Serial.read();
 
-      if (recvInProgress == true) {
+      if (recvInProgress == true && rc != startMarker) {
           if (rc != endMarker) {
               receivedCommand[ndx] = rc;
               ndx++;
@@ -296,8 +296,6 @@ void recvCommand() {
               recvInProgress = false;
               ndx = 0;
               newCommandToRead = true;
-              Serial.write(receivedCommand);
-
           }
       }
 
@@ -314,25 +312,21 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
     for (int i = 0; i< 4 && commandTmp != 0; ){
       switch(commandTmp[0]){
         case 'X':{
-          *XGoal = atoi(&commandTmp[1]) * STEPS_PER_PIXEL_X;
+          *XGoal = min(max(0, (atoi(&commandTmp[1]) * STEPS_PER_PIXEL_X)), MAX_STEPS_X);
           
         }break;
         case 'Y':{
-          *YGoal = atoi(&commandTmp[1]) * STEPS_PER_PIXEL_Y;
-          
+          *YGoal = min(max(0, (atoi(&commandTmp[1]) * STEPS_PER_PIXEL_Y)), MAX_STEPS_Y);
         }break;
         case 'L': {
-          *ZGoal = max(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1) * STEP_SIZE_Z;
-          
+          *ZGoal = min(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1) * STEP_SIZE_Z;
         }break;
         case 'T':{
-          uint8_t hamLevel = max(max(0, atoi(&commandTmp[1])), NUM_O_HAM_LEVEL-1);
+          uint8_t hamLevel = min(max(0, atoi(&commandTmp[1]))-1, NUM_O_HAM_LEVEL-1);
           hamGoal[0] = hamLevels[hamLevel][0];
           hamGoal[1] = hamLevels[hamLevel][1];
-          
         }break;
       }
-
       commandTmp = strtok(NULL, " ");
     }
     newCommandToRead = false;
@@ -341,7 +335,7 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
 }
 
 void confirmCommandRecieved() {
-  Serial.write("A");
+  Serial.print("A");
   }
 
 bool allAreWaiting() {

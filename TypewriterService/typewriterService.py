@@ -8,7 +8,7 @@ def find_arduino(serial_number: str) -> serial.Serial:
             return serial.Serial(pinfo.device)
     raise IOError(f"Could not find the arduino {serial_number} - is it plugged in?")
 
-SERIAL_NUMBER : str = "" # TODO find out
+SERIAL_NUMBER : str = "550373133373515140E1"
 LETTER_LIST: list[str] = [
     ".", ">", "%o", "<", "|", "'", "³", "_", "Y", "J", "?", "X", "Ö", "V", "B", "W",
     "P", "Q", "H", "S", "A", "I", "O", "E", "U", "L", "R", "T", "C", "N", "G", "D",
@@ -24,8 +24,9 @@ arduino: serial.Serial = find_arduino(SERIAL_NUMBER)
 
 
 def write_letter(x: int, y: int, letter: int, thickness: int) -> str:
-    arduino.write(f"<X{x} Y{y} L{letter} T{thickness}>")
-    return arduino.read();
+    command : str = f"<X{x} Y{y} L{letter} T{thickness}>"
+    arduino.write(bytes(command, 'utf-8'))
+    return arduino.read()
 
 
 def write_img(img: np.ndarray):
@@ -40,3 +41,5 @@ def write_img(img: np.ndarray):
             elif reponse_code != "A":
                 raise Exception(f"Encountered unexpected arduino response: '{reponse_code}'")
 
+# ham levels start with 1
+print(write_letter(10, 10, 50, 5))
