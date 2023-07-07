@@ -44,7 +44,7 @@
 // if decrease OFFSET -> increase MAX steps by same amount
 #define START_OFFSET_X 200
 #define ACCEL_X 20000
-#define MAX_STEPS_X 17500
+#define MAX_STEPS_X 17700
 #define STEPS_PER_PIXEL_X 20
 #define LIMIT_X_AXIS_PIN 9 
 
@@ -66,10 +66,10 @@
 #define STEP_SIZE_Z  8
 // steps to take from startup jam position '*', to '.' as
 // current position, '.' is home position
-#define START_OFFSET_Z (51 * STEP_SIZE_Z)
+#define START_OFFSET_Z (50 * STEP_SIZE_Z)
 //steps for one full rotation, 100 letters on wheel
 #define MAX_STEPS_Z (NUMBER_LETTERS * STEP_SIZE_Z)
-#define ACCEL_Z 4000
+#define ACCEL_Z 10000
 
 #define STEPPER_ENABLE_PIN 8
 
@@ -162,16 +162,16 @@ void setup() {
 void loop() {
   doStartUpOnce();
 
-  // if(allAreWaiting()){
+  if(allAreWaiting()){
+    recvCommand();
+    processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
+    //startCommand();
+  }
+  // else if(allAtPosition()){
   //   recvCommand();
-  //   processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
-  //   startCommand();
-  // }
-  // // else if(allAtPosition()){
-  // //   recvCommand();
-  // //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
+  //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
 
-  // // }
+  // }
 
   // runStateMachines();
 }
@@ -296,6 +296,8 @@ void recvCommand() {
               recvInProgress = false;
               ndx = 0;
               newCommandToRead = true;
+              Serial.write(receivedCommand);
+
           }
       }
 
@@ -311,24 +313,24 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
     char* commandTmp = strtok(receivedCommand, " ");
     for (int i = 0; i< 4 && commandTmp != 0; ){
       switch(commandTmp[0]){
-        case 'X':
-          *XGoal = atoi(&commandTmp[1]);
-          break;
-        case 'Y':
-          *YGoal = atoi(&commandTmp[1]);
-          break;
-        case 'L':
+        case 'X':{
+          *XGoal = atoi(&commandTmp[1]) * STEPS_PER_PIXEL_X;
+          
+        }break;
+        case 'Y':{
+          *YGoal = atoi(&commandTmp[1]) * STEPS_PER_PIXEL_Y;
+          
+        }break;
+        case 'L': {
           *ZGoal = max(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1) * STEP_SIZE_Z;
-          break;
-        case 'T':
-          {
-            uint8_t hamLevel = max(max(0, atoi(&commandTmp[1])), NUM_O_HAM_LEVEL-1);
-            hamGoal[0] = hamLevels[hamLevel][0];
-            hamGoal[1] = hamLevels[hamLevel][1];
-          }
-          break;
-        default:
-          break;
+          
+        }break;
+        case 'T':{
+          uint8_t hamLevel = max(max(0, atoi(&commandTmp[1])), NUM_O_HAM_LEVEL-1);
+          hamGoal[0] = hamLevels[hamLevel][0];
+          hamGoal[1] = hamLevels[hamLevel][1];
+          
+        }break;
       }
 
       commandTmp = strtok(NULL, " ");
