@@ -129,7 +129,7 @@ void setup() {
   pinMode(HAMMER_PIN, OUTPUT);
   analogWrite(HAMMER_PIN, 0);
 
-  pinMode(LIMIT_X_AXIS_PIN, INPUT);
+  pinMode(LIMIT_X_AXIS_PIN, INPUT_PULLUP);
   pinMode(LIMIT_A_AXIS_PIN, INPUT);
 
   
@@ -165,7 +165,7 @@ void loop() {
   if(allAreWaiting()){
     recvCommand();
     processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
-    //startCommand();
+    startCommand();
   }
   // else if(allAtPosition()){
   //   recvCommand();
@@ -173,7 +173,7 @@ void loop() {
 
   // }
 
-  // runStateMachines();
+  runStateMachines();
 }
 
 void runStateMachines(){
@@ -359,6 +359,7 @@ void doStartUpOnce(){
       case RUNNING:
         //Serial.write("X: RUNNING\n");
         if(digitalRead(LIMIT_X_AXIS_PIN) == HIGH){
+          Serial.println("X limit switch triggerd");
           stepperX.stop();
           stepperX.runToPosition();
           stateX = AT_ENDSTOP;

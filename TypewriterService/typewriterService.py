@@ -21,8 +21,7 @@ LETTER_LIST: list[str] = [
 ]
 
 arduino: serial.Serial = find_arduino(SERIAL_NUMBER)
-
-
+print(arduino.readline())
 def write_letter(x: int, y: int, letter: int, thickness: int) -> str:
     command : str = f"<X{x} Y{y} L{letter} T{thickness}>"
     arduino.write(bytes(command, 'utf-8'))
@@ -42,4 +41,4 @@ def write_img(img: np.ndarray):
                 raise Exception(f"Encountered unexpected arduino response: '{reponse_code}'")
 
 # ham levels start with 1
-print(write_letter(10, 10, 50, 5))
+print(write_letter(10, 10, 50, 1))
