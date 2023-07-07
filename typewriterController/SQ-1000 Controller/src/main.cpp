@@ -61,12 +61,12 @@
 #define MAX_SPEED_Z 10000.0
 #define HOMING_SPEED_Z 700
 #define NUMBER_LETTERS 100
-//steps for one full rotation, 100 letters on wheel
-#define MAX_STEPS_Z 100
 #define STEP_SIZE_Z  8
 // steps to take from startup jam position, to '.' as
 // current position, '.' is home position
-#define START_OFFSET_Z 100
+#define START_OFFSET_Z (100 * STEP_SIZE_Z)
+//steps for one full rotation, 100 letters on wheel
+#define MAX_STEPS_Z (NUMBER_LETTERS * STEP_SIZE_Z)
 #define ACCEL_Z 5000
 
 #define STEPPER_ENABLE_PIN 8
@@ -119,7 +119,7 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *HamGoal);
 void confirmCommandRecieved();
 bool allAreWaiting();
 bool allStepperAtPosition();
-void doStartUp();
+void doStartUpOnce();
 
 void setup() {
   pinMode(STEPPER_ENABLE_PIN, OUTPUT);
@@ -184,7 +184,7 @@ void loop(){
 
 
 // void loop() {
-//   doStartUp();
+//   doStartUpOnce();
 
 //   if(allAreWaiting()){
 //     recvCommand();
@@ -291,7 +291,7 @@ void startCommand(){
       }
     }
     stepperZ.moveTo(currentZGoal);
-    stateY = RUNNING;
+    stateZ = RUNNING;
 
     newGoalsSet = false;
   }
@@ -342,7 +342,7 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
           *YGoal = atoi(&commandTmp[1]);
           break;
         case 'L':
-          *ZGoal = max(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1);
+          *ZGoal = max(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1) * STEP_SIZE_Z;
           break;
         case 'T':
           uint8_t hamLevel = max(max(0, atoi(&commandTmp[1])), NUM_O_HAM_LEVEL-1);
@@ -372,12 +372,13 @@ bool allStepperAtPosition(){
   return stateA == AT_POS && stateX == AT_POS && stateY == AT_POS && stateZ == AT_POS;
 }
 
-void doStartUp(){
+void doStartUpOnce(){
   static boolean startUp = true;
   if(startUp){
     // move daisy wheel and horizontal movement to home position
     switch(stateX){ //1.  horizontal movement
       case WAITING:
+        // TODO constant speed might not work here
         stepperX.setSpeed(HOMING_SPEED_X);
         stateX = RUNNING;
         break;

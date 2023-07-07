@@ -1,2 +1,6 @@
 dvc==3.2.4
 dvc-gdrive==2.20.0
+numpy==1.25.0
+torch==2.0.1
+torchvision==0.15.2
+requests==2.31.0
