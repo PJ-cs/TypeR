@@ -3,12 +3,14 @@
 
 
 // Stepper State definitions
-#define RUNNING 01
-#define WAITING 02
-#define STOPPED 03
-#define AT_POS 04
-#define RUN_HOME 05
-#define COOL_DOWN 06
+#define RUNNING 1
+#define WAITING 2
+#define STOPPED 3
+#define AT_POS 4
+#define RUN_HOME 5
+#define AT_HOME 6
+#define COOL_DOWN 7
+#define AT_ENDSTOP 8
 
 
 //TODO make sure jumpers are set
@@ -40,7 +42,7 @@
 // how many steps to the right of stop
 // switch to take, where new home pos
 // if decrease OFFSET -> increase MAX steps by same amount
-#define START_OFFSET_X 400
+#define START_OFFSET_X 200
 #define ACCEL_X 20000
 #define MAX_STEPS_X 17500
 #define STEPS_PER_PIXEL_X 20
@@ -62,12 +64,12 @@
 #define HOMING_SPEED_Z 700
 #define NUMBER_LETTERS 100
 #define STEP_SIZE_Z  8
-// steps to take from startup jam position, to '.' as
+// steps to take from startup jam position '*', to '.' as
 // current position, '.' is home position
-#define START_OFFSET_Z (100 * STEP_SIZE_Z)
+#define START_OFFSET_Z (51 * STEP_SIZE_Z)
 //steps for one full rotation, 100 letters on wheel
 #define MAX_STEPS_Z (NUMBER_LETTERS * STEP_SIZE_Z)
-#define ACCEL_Z 5000
+#define ACCEL_Z 4000
 
 #define STEPPER_ENABLE_PIN 8
 
@@ -123,8 +125,6 @@ void doStartUpOnce();
 
 void setup() {
   pinMode(STEPPER_ENABLE_PIN, OUTPUT);
-  // HIGH means disabled for the enable pin
-  digitalWrite(STEPPER_ENABLE_PIN, HIGH);
 
   pinMode(HAMMER_PIN, OUTPUT);
   analogWrite(HAMMER_PIN, 0);
@@ -152,57 +152,29 @@ void setup() {
   stateHam = WAITING;
 
   Serial.begin(9600);
+  // HIGH means disabled for the enable pin
+  digitalWrite(STEPPER_ENABLE_PIN, LOW);
   delay(500);
   Serial.println("<Arduino is ready>");
 }
 
 
-//TODO remove, for testing
-bool start = true;
-void loop(){
-  if(start){
-    stepperZ.moveTo(-MAX_STEPS_Z);
-    digitalWrite(STEPPER_ENABLE_PIN, LOW);
-    start = false;
-  }
-  if(stepperZ.distanceToGo() == 0){
-    digitalWrite(STEPPER_ENABLE_PIN, HIGH);
-  }
+void loop() {
+  doStartUpOnce();
 
-  stepperZ.run();
-
-  // if(start){
-  //   stepperX.move(HOMING_STEPS_X);
-  //   digitalWrite(STEPPER_ENABLE_PIN, LOW);
-  //   start = false;
+  // if(allAreWaiting()){
+  //   recvCommand();
+  //   processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
+  //   startCommand();
   // }
-  
-  // if(digitalRead(LIMIT_X_AXIS_PIN) == HIGH){   
-  //   Serial.write("Stopped\n");   
-  //   stepperX.stop();
-  //   stepperX.runToPosition();
-  //   digitalWrite(STEPPER_ENABLE_PIN, HIGH);
-  // } 
-  // stepperX.run(); 
+  // // else if(allAtPosition()){
+  // //   recvCommand();
+  // //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
+
+  // // }
+
+  // runStateMachines();
 }
-
-
-// void loop() {
-//   doStartUpOnce();
-
-//   if(allAreWaiting()){
-//     recvCommand();
-//     processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
-//     startCommand();
-//   }
-//   // else if(allAtPosition()){
-//   //   recvCommand();
-//   //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
-
-//   // }
-
-//   runStateMachines();
-// }
 
 void runStateMachines(){
   switch(stateA){ // TODO implement stop switch for ribbon sensor
@@ -349,9 +321,11 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
           *ZGoal = max(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1) * STEP_SIZE_Z;
           break;
         case 'T':
-          uint8_t hamLevel = max(max(0, atoi(&commandTmp[1])), NUM_O_HAM_LEVEL-1);
-          hamGoal[0] = hamLevels[hamLevel][0];
-          hamGoal[1] = hamLevels[hamLevel][1];
+          {
+            uint8_t hamLevel = max(max(0, atoi(&commandTmp[1])), NUM_O_HAM_LEVEL-1);
+            hamGoal[0] = hamLevels[hamLevel][0];
+            hamGoal[1] = hamLevels[hamLevel][1];
+          }
           break;
         default:
           break;
@@ -380,62 +354,79 @@ void doStartUpOnce(){
   static boolean startUp = true;
   if(startUp){
     // move daisy wheel and horizontal movement to home position
-    switch(stateX){ //1.  horizontal movement
+    switch(stateX){ //horizontal movement
       case WAITING:
-        // TODO constant speed might not work here
+        //Serial.write("X: WAITING\n");
         stepperX.move(HOMING_STEPS_X);
         stateX = RUNNING;
         break;
       case RUNNING:
+        //Serial.write("X: RUNNING\n");
         if(digitalRead(LIMIT_X_AXIS_PIN) == HIGH){
           stepperX.stop();
           stepperX.runToPosition();
-          stateX = AT_POS;
+          stateX = AT_ENDSTOP;
           break;
         }
-        stepperX.runSpeed();
+        stepperX.run();
         break;
-      case AT_POS:
-        if(stateZ == AT_POS){
+      case AT_ENDSTOP:
+        //Serial.write("X: AT_ENDSTOP\n");
+        if(stateZ == AT_ENDSTOP){
           stepperX.move(START_OFFSET_X);
           stateX = RUN_HOME;
         }
         break;
       case RUN_HOME:
+        //Serial.write("X: RUN_HOME\n");
         if(stepperX.distanceToGo() == 0){
-          startUp = false;
-          stateX = WAITING;
-          stateZ = WAITING;
+          stateX = AT_HOME;
           stepperX.setCurrentPosition(0);
           break;
         } 
         stepperX.run();       
         break;
-      default:
-        break;
     }
-    
+
     switch(stateZ){
       case WAITING:
-        if(stateX == AT_POS){
-          // if horizontal at stop switch, try rotate daisy wheel two times,
-          // will be physically blocked at 0 pos, then reset
-          stepperZ.moveTo(MAX_STEPS_Z*2); 
+        //Serial.write("Z: WAITING\n");
+        if(stateX == AT_ENDSTOP){
+          // if horizontal at stop switch, try rotate daisy wheel one time,
+          // will be physically blocked at '*' pos, then reset
+          stepperZ.moveTo(MAX_STEPS_Z); 
           stateZ = RUNNING;
         }
         break;
       case RUNNING:
-        if(stepperZ.distanceToGo() == 0){
-          stepperZ.move(START_OFFSET_Z);
-          stateZ = RUN_HOME;
+        //Serial.write("Z: RUNNING\n");
+        if(abs(stepperZ.distanceToGo()) <= 500 ){
+          stepperZ.stop();
+          stepperZ.runToPosition();
+          stepperZ.setCurrentPosition(0);
+          stateZ = AT_ENDSTOP;
+          delay(500);
           break;
         }
         stepperZ.run();
         break;
+
+      case AT_ENDSTOP:
+        //Serial.write("Z: AT_ENDSTOP\n");
+        if(stateX == AT_HOME){
+          stepperZ.move(START_OFFSET_Z);
+          stateZ = RUN_HOME;
+        }
+        break;
       case RUN_HOME:
+        //Serial.write("Z: RUN_HOME\n");
         if(stepperZ.distanceToGo() == 0){
           stepperZ.setCurrentPosition(0);
-          stateZ = AT_POS;
+          startUp = false;
+          digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+          stateZ = WAITING;
+          stateX = WAITING;
+          break;
         }
         stepperZ.run();
         break;
