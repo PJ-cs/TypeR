@@ -36,12 +36,12 @@
 #define DIR_PIN_X 5
 #define STEP_PIN_X 2
 #define MAX_SPEED_X 1000.0
-#define HOMING_SPEED_X 1000
+#define HOMING_STEPS_X -100000
 // how many steps to the right of stop
 // switch to take, where new home pos
 // if decrease OFFSET -> increase MAX steps by same amount
 #define START_OFFSET_X 400
-#define ACCEL_X 10000
+#define ACCEL_X 20000
 #define MAX_STEPS_X 17500
 #define STEPS_PER_PIXEL_X 20
 #define LIMIT_X_AXIS_PIN 9 
@@ -158,28 +158,32 @@ void setup() {
 
 
 //TODO remove, for testing
-boolean startUp = true;
-int location = 1;
+bool start = true;
 void loop(){
-  if(startUp){
+  if(start){
+    stepperZ.moveTo(-MAX_STEPS_Z);
     digitalWrite(STEPPER_ENABLE_PIN, LOW);
-    stepperZ.moveTo(location*STEP_SIZE_Z);
-    startUp = false;
-    if(location == 0){
-      location = 1;
-    }
-    else
-      location = 0;
+    start = false;
   }
-  else if (stepperZ.distanceToGo() != 0){
-    stepperZ.run();
-  } else {
-    Serial.println("Run finished");
-    Serial.print(location);
+  if(stepperZ.distanceToGo() == 0){
     digitalWrite(STEPPER_ENABLE_PIN, HIGH);
-    delay(2000);
-    startUp = true;
   }
+
+  stepperZ.run();
+
+  // if(start){
+  //   stepperX.move(HOMING_STEPS_X);
+  //   digitalWrite(STEPPER_ENABLE_PIN, LOW);
+  //   start = false;
+  // }
+  
+  // if(digitalRead(LIMIT_X_AXIS_PIN) == HIGH){   
+  //   Serial.write("Stopped\n");   
+  //   stepperX.stop();
+  //   stepperX.runToPosition();
+  //   digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+  // } 
+  // stepperX.run(); 
 }
 
 
@@ -379,12 +383,13 @@ void doStartUpOnce(){
     switch(stateX){ //1.  horizontal movement
       case WAITING:
         // TODO constant speed might not work here
-        stepperX.setSpeed(HOMING_SPEED_X);
+        stepperX.move(HOMING_STEPS_X);
         stateX = RUNNING;
         break;
       case RUNNING:
         if(digitalRead(LIMIT_X_AXIS_PIN) == HIGH){
           stepperX.stop();
+          stepperX.runToPosition();
           stateX = AT_POS;
           break;
         }
