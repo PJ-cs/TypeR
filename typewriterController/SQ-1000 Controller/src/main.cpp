@@ -227,6 +227,7 @@ void runStateMachines(){
           stateX = WAITING;
           stateY = WAITING;
           stateZ = WAITING;
+          confirmCommandRecieved(); // TODO find more efficient method
         }
         break;
       case RUNNING:
@@ -358,8 +359,8 @@ void doStartUpOnce(){
         break;
       case RUNNING:
         //Serial.write("X: RUNNING\n");
-        if(digitalRead(LIMIT_X_AXIS_PIN) == HIGH){
-          Serial.println("X limit switch triggerd");
+        if(digitalRead(LIMIT_X_AXIS_PIN) == LOW){
+          //Serial.println("X limit switch triggerd");
           stepperX.stop();
           stepperX.runToPosition();
           stateX = AT_ENDSTOP;
