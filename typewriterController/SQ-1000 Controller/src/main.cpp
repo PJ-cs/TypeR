@@ -11,6 +11,8 @@
 #define AT_HOME 6
 #define COOL_DOWN 7
 #define AT_ENDSTOP 8
+#define AT_ENDSTOP1 9
+#define AT_ENDSTOP2 10
 
 
 //TODO make sure jumpers are set
@@ -45,7 +47,7 @@
 #define START_OFFSET_X 200
 #define ACCEL_X 20000
 #define MAX_STEPS_X 17700
-#define STEPS_PER_PIXEL_X 20
+#define STEPS_PER_PIXEL_X 10
 #define LIMIT_X_AXIS_PIN 9 
 
 // line feed, vertical movement
@@ -55,7 +57,7 @@
 #define ACCEL_Y 10000
 // sheet height 
 #define MAX_STEPS_Y 10000
-#define STEPS_PER_PIXEL_Y 20
+#define STEPS_PER_PIXEL_Y 17
 
 // daisy wheel
 #define DIR_PIN_Z 7
@@ -259,13 +261,18 @@ void startCommand(){
     stateY = RUNNING;
 
     // circular coordinate system for Z (daisy wheel) for faster movemnt
-    if(abs(currentZGoal - stepperZ.currentPosition()) > MAX_STEPS_Z / 2){
-      if(currentZGoal > stepperZ.currentPosition()){
-        stepperZ.setCurrentPosition(stepperZ.currentPosition()+ MAX_STEPS_Z);
-      }
-      else{
-        stepperZ.setCurrentPosition(stepperZ.currentPosition()- MAX_STEPS_Z);
-      }
+    // if(abs(currentZGoal - stepperZ.currentPosition()) > MAX_STEPS_Z / 2){
+    //   if(currentZGoal > stepperZ.currentPosition()){
+    //     stepperZ.setCurrentPosition(stepperZ.currentPosition()+ MAX_STEPS_Z);
+    //   }
+    //   else{
+    //     stepperZ.setCurrentPosition(stepperZ.currentPosition()- MAX_STEPS_Z);
+    //   }
+    // }
+    if(abs(currentZGoal- stepperZ.currentPosition()) < MAX_STEPS_Z / 20){
+      stepperZ.setAcceleration(ACCEL_Z/4);
+    }else{
+      stepperZ.setAcceleration(ACCEL_Z);
     }
     stepperZ.moveTo(currentZGoal);
     stateZ = RUNNING;
@@ -317,7 +324,7 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
           
         }break;
         case 'Y':{
-          *YGoal = min(max(0, (atoi(&commandTmp[1]) * STEPS_PER_PIXEL_Y)), MAX_STEPS_Y);
+          *YGoal = -min(max(0, (atoi(&commandTmp[1]) * STEPS_PER_PIXEL_Y)), MAX_STEPS_Y);
         }break;
         case 'L': {
           *ZGoal = min(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1) * STEP_SIZE_Z;
@@ -392,7 +399,7 @@ void doStartUpOnce(){
         if(stateX == AT_ENDSTOP){
           // if horizontal at stop switch, try rotate daisy wheel one time,
           // will be physically blocked at '*' pos, then reset
-          stepperZ.moveTo(MAX_STEPS_Z); 
+          stepperZ.moveTo(MAX_STEPS_Z*2); 
           stateZ = RUNNING;
         }
         break;

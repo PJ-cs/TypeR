@@ -1,14 +1,20 @@
 import serial
 import serial.tools.list_ports as list_ports
 import numpy as np
+import time
 
 def find_arduino(serial_number: str) -> serial.Serial:
     for pinfo in serial.tools.list_ports.comports():
         if pinfo.serial_number == serial_number:
-            return serial.Serial(pinfo.device)
+            arduinoTmp = serial.Serial(pinfo.device)
+            print(arduinoTmp.readline())
+            return arduinoTmp
     raise IOError(f"Could not find the arduino {serial_number} - is it plugged in?")
 
 SERIAL_NUMBER : str = "550373133373515140E1"
+HORIZONTAL_PIXEL_PER_LETTER: int = 20
+VERTICAL_PIXEL_PER_LETTER: int = 40
+HORIZONTAL_LIMIT = 1200 # TODO
 LETTER_LIST: list[str] = [
     ".", ">", "%o", "<", "|", "'", "³", "_", "Y", "J", "?", "X", "Ö", "V", "B", "W",
     "P", "Q", "H", "S", "A", "I", "O", "E", "U", "L", "R", "T", "C", "N", "G", "D",
@@ -19,6 +25,7 @@ LETTER_LIST: list[str] = [
     "6", "7", "8", "9", "´", "+", "µ"
  
 ]
+LETTER_DICT: dict[str, int] = {letter: i for i, letter in enumerate(LETTER_LIST)}
 
 arduino: serial.Serial = find_arduino(SERIAL_NUMBER)
 def write_letter(x: int, y: int, letter: int, thickness: int) -> str:
@@ -32,17 +39,48 @@ def write_img(img: np.ndarray):
         for column_index, pixel in enumerate(row):
             # X for typewriter is movement in line, pixel[0] is letter index according to list above
             # pixel[1] is thickness 
-            reponse_code = write_letter(column_index, row_index, pixel[0], pixel[1])
-            if reponse_code =="R":
-                # TODO failure routine, to continue here when restarted
-                raise IOError("The typewriter ribbon is empty")
-            elif reponse_code != "A":
-                raise Exception(f"Encountered unexpected arduino response: '{reponse_code}'")
+            response_code = write_letter(column_index, row_index, pixel[0], pixel[1])
+            handleArduinoReturn(response_code)
 
-# ham levels start with 1
-print(arduino.readline())
+def handleArduinoReturn(response_code: str):
+    if response_code == bytes("R", "UTF-8"):
+        # TODO failure routine, to continue here when restarted
+        raise IOError("The typewriter ribbon is empty")
+    elif response_code != bytes("A", "UTF-8"):
+        raise Exception(f"Encountered unexpected arduino response: '{response_code}'")
 
-for x in range(0, 40):
-    for y in range(0, 40):
-        if write_letter(x, y, 0, 3) != bytes('A', "UTF-8"):
-            exit(1)
+
+def write_text(text: list[str], thickness: int):
+    print("writing text: ", text)
+    running_horizontal = 0
+    running_vertical = 0
+
+    for letter in text:
+        if letter == ' ':
+            if running_horizontal != 0:
+                running_horizontal += HORIZONTAL_PIXEL_PER_LETTER
+            continue
+        elif letter == '\n':
+            running_vertical += VERTICAL_PIXEL_PER_LETTER
+            running_horizontal = 0
+            continue
+        else:
+            if letter not in LETTER_DICT: # print space, if letter unknown
+                running_horizontal += HORIZONTAL_PIXEL_PER_LETTER
+                continue
+            handleArduinoReturn(write_letter(running_horizontal,running_vertical, LETTER_DICT[letter], thickness))
+        running_horizontal += HORIZONTAL_PIXEL_PER_LETTER
+
+        if running_horizontal > HORIZONTAL_LIMIT:
+            running_horizontal = 0
+            running_vertical += VERTICAL_PIXEL_PER_LETTER
+
+def write_letter_sample():
+    print_string = []
+    for letter in LETTER_LIST:
+        print_string.append(letter)
+        print_string.append(' ')
+    write_text(print_string, 5)
+
+time.sleep(30)
+write_letter_sample()

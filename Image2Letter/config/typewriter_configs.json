@@ -11,8 +11,9 @@
         "n", "g", "b", "f", "m", "z", "k", "ä", "ü", ",", "1", "2", "3", "4", "0", "5",
         "6", "7", "8", "9", "´", "+", "µ"
     ],
-    "pixelPerLetterHoriz": -1,
-    "pixelPerLetterVert": -1,
+    "pixelPerLetterHoriz": 18,
+    "pixelPerLetterVert": 25,
     "resolutionHoriz": -1,
-    "resolutionVert": -1
+    "resolutionVert": -1,
+    "boldLevels": 5
 }
