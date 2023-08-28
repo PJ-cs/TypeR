@@ -1,3 +1,5 @@
+//paste this code into the console in a browser with an opened
+//google image site
 function simulateRightClick( element ) {
     var event1 = new MouseEvent( 'mousedown', {
         bubbles: true,

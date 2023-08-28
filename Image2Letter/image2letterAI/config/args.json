@@ -3,5 +3,6 @@
     "input_res": [1080, 1920],
     "shuffle": true,
     "alpha": 1e-4,
-    "learning_rate": 1e-1
+    "learning_rate": 1e-1,
+    "conv_size": 30
 }

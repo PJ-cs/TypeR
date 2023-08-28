@@ -1,7 +1,8 @@
 import os
-from config import config
+import config.config as config
 import requests
 from pathlib import Path
+from utils import load_transposed_convolutions
 
 def elt_data():
     """Extract, load and transform our data assets."""
@@ -29,5 +30,6 @@ def elt_data():
             except:
                 print("[INFO] error downloading {}...skipping".format(p))
 
-
-elt_data()
+# TODO test this function
+# elt_data()
+load_transposed_convolutions(str(config.FONT_PATH), 34, config.TYPEWRITER_CONFIG["letterList"])
