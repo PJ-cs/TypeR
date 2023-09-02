@@ -13,6 +13,27 @@ def set_seeds(seed=42):
     random.seed(seed)
     torch.seed(seed)
 
+class UnNormalize(object):
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, tensor):
+        """
+        Args:
+            tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
+        Returns:
+            Tensor: Normalized image.
+        """
+        for t, m, s in zip(tensor, self.mean, self.std):
+            t.mul_(s).add_(m)
+            # The normalize code -> t.sub_(m).div_(s)
+        return tensor
+
+def convert_rgb_tensor_for_plot(tensor_img: torch.Tensor):
+    tmp = UnNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(tensor_img)
+    tmp = tmp.permute(1,2,0)
+    return tmp
 
 def load_transposed_convolutions(font_path: str, conv_size: int, letters: list[str]):
     """loads the font from the file path specified in the config
@@ -43,4 +64,3 @@ def load_transposed_convolutions(font_path: str, conv_size: int, letters: list[s
     
     return torch.stack(convolutions)
 
-        
