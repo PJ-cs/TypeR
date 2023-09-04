@@ -34,6 +34,7 @@ def write_letter(x: int, y: int, letter: int, thickness: int) -> str:
     return arduino.read()
 
 
+# TODO this is wrong, there can be multiple letters per pixel, up to five channels
 def write_img(img: np.ndarray):
     for row_index, row in enumerate(img):
         for column_index, pixel in enumerate(row):

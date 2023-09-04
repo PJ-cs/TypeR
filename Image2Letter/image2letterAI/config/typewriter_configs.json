@@ -14,8 +14,8 @@
         "font": "Courier 10 Pitch Regular",
         "pixelPerLetterHoriz": 18,
         "pixelPerLetterVert": 25,
-        "resolutionHoriz": -1,
-        "resolutionVert": -1,
+        "resolutionHoriz": 1750,
+        "resolutionVert": 2460,
         "boldLevels": 5
     }
 }

@@ -47,6 +47,7 @@
 #define START_OFFSET_X 200
 #define ACCEL_X 20000
 #define MAX_STEPS_X 17700
+// sheet width
 #define STEPS_PER_PIXEL_X 10
 #define LIMIT_X_AXIS_PIN 9 
 

@@ -35,11 +35,11 @@ def convert_rgb_tensor_for_plot(tensor_img: torch.Tensor):
     tmp = tmp.permute(1,2,0)
     return tmp
 
-def load_transposed_convolutions(font_path: str, conv_size: int, letters: list[str]):
+def load_transp_conv_weights(font_path: str, kernel_size: int, letters: list[str]):
     """loads the font from the file path specified in the config
     and creates the transposed convolutions from it"""
 
-    font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(conv_size*.88))
+    font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size*.88))
 
     transform = transforms.Compose([
         transforms.PILToTensor()
@@ -47,14 +47,14 @@ def load_transposed_convolutions(font_path: str, conv_size: int, letters: list[s
 
     all_letters_text = "".join(letters)
     left, top, right, bottom = font.getbbox(all_letters_text)
-    y = (conv_size // 2) -  ((bottom-top)//2)-top
+    y = (kernel_size // 2) -  ((bottom-top)//2)-top
 
     convolutions: list[torch.Tensor] = []
     for letter in letters:
-        im = Image.new("L", (conv_size, conv_size), 0)
+        im = Image.new("L", (kernel_size, kernel_size), 0)
         draw = ImageDraw.Draw(im)
         left, top, right, bottom = font.getbbox(letter)
-        x = (conv_size // 2) -  ((right-left)//2)
+        x = (kernel_size // 2) -  ((right-left)//2)
         
         draw.multiline_text((x,y), letter, 255, font=font)
         im.show()
@@ -62,5 +62,5 @@ def load_transposed_convolutions(font_path: str, conv_size: int, letters: list[s
         letter_tensor = transform(im).float().squeeze(0) / 255.
         convolutions.append(letter_tensor)
     
-    return torch.stack(convolutions)
+    return torch.stack(convolutions).unsqueeze(0)
 

@@ -2,7 +2,7 @@ import os
 import config.config as config
 import requests
 from pathlib import Path
-from utils import load_transposed_convolutions
+from utils import load_transp_conv_weights
 import cv2
 
 def elt_data():
