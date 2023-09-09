@@ -57,7 +57,6 @@ def load_transp_conv_weights(font_path: str, kernel_size: int, letters: list[str
         x = (kernel_size // 2) -  ((right-left)//2)
         
         draw.multiline_text((x,y), letter, 255, font=font)
-        im.show()
 
         letter_tensor = transform(im).float().squeeze(0) / 255.
         convolutions.append(letter_tensor)
