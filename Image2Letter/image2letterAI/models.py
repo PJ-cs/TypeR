@@ -15,6 +15,7 @@ class NeuralNetwork(nn.Module):
     def forward(self, x):
        feat1 = nn.ReLU(self.conv1(x))
        feat2 = nn.ReLU(self.conv2(feat1))
+       # TODO insert cap of max five letters per pixel
        out_img = self.transp_conv(feat2)
        return out_img
 

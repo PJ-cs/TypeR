@@ -52,7 +52,7 @@ def handleArduinoReturn(response_code: str):
 
 
 def write_text(text: list[str], thickness: int):
-    print("writing text: ", text)
+    #print("writing text: ", text)
     running_horizontal = 0
     running_vertical = 0
 
@@ -83,5 +83,8 @@ def write_letter_sample():
         print_string.append(' ')
     write_text(print_string, 5)
 
-time.sleep(30)
-write_letter_sample()
+time.sleep(2)
+# write_letter_sample()
+# write_text([".", "*", ".","*", ".","*", ".","*", "."], 1)
+
+write_text(["H", "i"], 5)

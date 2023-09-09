@@ -44,7 +44,7 @@
 // how many steps to the right of stop
 // switch to take, where new home pos
 // if decrease OFFSET -> increase MAX steps by same amount
-#define START_OFFSET_X 200
+#define START_OFFSET_X 300
 #define ACCEL_X 20000
 #define MAX_STEPS_X 17700
 // sheet width
@@ -61,18 +61,20 @@
 #define STEPS_PER_PIXEL_Y 17
 
 // daisy wheel
-#define DIR_PIN_Z 7
-#define STEP_PIN_Z 4
-#define MAX_SPEED_Z 10000.0
+#define Z_PIN_4 12 //SPIN enable
+#define Z_PIN_3 7 // dirz
+#define Z_PIN_2 4 // stepz
+#define Z_PIN_1 10 //y+
+#define MAX_SPEED_Z 100
 #define HOMING_SPEED_Z 700
 #define NUMBER_LETTERS 100
-#define STEP_SIZE_Z  8
+#define STEP_SIZE_Z  1
 // steps to take from startup jam position '*', to '.' as
 // current position, '.' is home position
 #define START_OFFSET_Z (50 * STEP_SIZE_Z)
 //steps for one full rotation, 100 letters on wheel
 #define MAX_STEPS_Z (NUMBER_LETTERS * STEP_SIZE_Z)
-#define ACCEL_Z 10000
+#define ACCEL_Z 1500
 
 #define STEPPER_ENABLE_PIN 8
 
@@ -99,7 +101,7 @@ AccelStepper stepperY(AccelStepper::DRIVER, STEP_PIN_Y, DIR_PIN_Y);
 int stateZ;
 int currentZGoal;
 int nextZGoal;
-AccelStepper stepperZ(AccelStepper::DRIVER, STEP_PIN_Z, DIR_PIN_Z);
+AccelStepper stepperZ(AccelStepper::FULL4WIRE, Z_PIN_1, Z_PIN_2, Z_PIN_3, Z_PIN_4);
 
 int stateHam;
 unsigned long startMillis;
@@ -116,6 +118,8 @@ char receivedCommand[numChars];
 boolean newCommandToRead = false;
 boolean newGoalsSet = false;
 
+boolean startUpRunning = false;
+
 // put function declarations here:
 void runStateMachines();
 void startCommand();
@@ -124,7 +128,7 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *HamGoal);
 void confirmCommandRecieved();
 bool allAreWaiting();
 bool allStepperAtPosition();
-void doStartUpOnce();
+boolean doStartUpOnce();
 
 void setup() {
   pinMode(STEPPER_ENABLE_PIN, OUTPUT);
@@ -148,8 +152,10 @@ void setup() {
   stepperY.setAcceleration(ACCEL_Y);
   stateY = WAITING;
 
+  // stepperZ.setMaxSpeed(MAX_SPEED_Z);
+  // stepperZ.setAcceleration(ACCEL_Z);
   stepperZ.setMaxSpeed(MAX_SPEED_Z);
-  stepperZ.setAcceleration(ACCEL_Z);
+  //stepperZ.setSpeed(MAX_SPEED_Z);
   stateZ = WAITING;
 
   stateHam = WAITING;
@@ -163,20 +169,23 @@ void setup() {
 
 
 void loop() {
-  doStartUpOnce();
+  startUpRunning = doStartUpOnce();
 
-  if(allAreWaiting()){
-    recvCommand();
-    processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
-    startCommand();
+  if (!startUpRunning){
+    if(allAreWaiting()){
+        recvCommand();
+        processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
+        startCommand();
+      }
+      // else if(allAtPosition()){
+      //   recvCommand();
+      //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
+
+      // }
+
+      runStateMachines();
   }
-  // else if(allAtPosition()){
-  //   recvCommand();
-  //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
-
-  // }
-
-  runStateMachines();
+  
 }
 
 void runStateMachines(){
@@ -210,7 +219,7 @@ void runStateMachines(){
         stateZ = AT_POS;
         break;
       }
-      stepperZ.run();
+      stepperZ.runSpeedToPosition();
   }
 
   if(allStepperAtPosition()){ //trigger hammer
@@ -270,12 +279,13 @@ void startCommand(){
     //     stepperZ.setCurrentPosition(stepperZ.currentPosition()- MAX_STEPS_Z);
     //   }
     // }
-    if(abs(currentZGoal- stepperZ.currentPosition()) < MAX_STEPS_Z / 20){
-      stepperZ.setAcceleration(ACCEL_Z/4);
-    }else{
-      stepperZ.setAcceleration(ACCEL_Z);
-    }
+   
     stepperZ.moveTo(currentZGoal);
+     if(abs(currentZGoal- stepperZ.currentPosition()) < MAX_STEPS_Z){
+      stepperZ.setSpeed(MAX_SPEED_Z/4);
+    }else{
+      stepperZ.setSpeed(MAX_STEPS_Z-1);
+    }
     stateZ = RUNNING;
 
     newGoalsSet = false;
@@ -355,7 +365,7 @@ bool allStepperAtPosition(){
   return stateA == AT_POS && stateX == AT_POS && stateY == AT_POS && stateZ == AT_POS;
 }
 
-void doStartUpOnce(){
+boolean doStartUpOnce(){
   static boolean startUp = true;
   if(startUp){
     // move daisy wheel and horizontal movement to home position
@@ -398,29 +408,30 @@ void doStartUpOnce(){
       case WAITING:
         //Serial.write("Z: WAITING\n");
         if(stateX == AT_ENDSTOP){
+          //stepperZ.setCurrentPosition(1);
           // if horizontal at stop switch, try rotate daisy wheel one time,
           // will be physically blocked at '*' pos, then reset
-          stepperZ.moveTo(MAX_STEPS_Z*2); 
+          stepperZ.moveTo(MAX_STEPS_Z*4); 
+          stepperZ.setSpeed(MAX_SPEED_Z);
           stateZ = RUNNING;
         }
         break;
       case RUNNING:
-        //Serial.write("Z: RUNNING\n");
-        if(abs(stepperZ.distanceToGo()) <= 500 ){
-          stepperZ.stop();
-          stepperZ.runToPosition();
+        //Serial.println("Z: RUNNING\n");
+        if(stepperZ.distanceToGo() == 0){
           stepperZ.setCurrentPosition(0);
           stateZ = AT_ENDSTOP;
-          delay(500);
+          delay(2000);
           break;
         }
-        stepperZ.run();
+        stepperZ.runSpeedToPosition();
         break;
 
       case AT_ENDSTOP:
         //Serial.write("Z: AT_ENDSTOP\n");
         if(stateX == AT_HOME){
-          stepperZ.move(START_OFFSET_Z);
+          stepperZ.moveTo(START_OFFSET_Z);
+          stepperZ.setSpeed(MAX_SPEED_Z);
           stateZ = RUN_HOME;
         }
         break;
@@ -434,10 +445,87 @@ void doStartUpOnce(){
           stateX = WAITING;
           break;
         }
-        stepperZ.run();
+        stepperZ.runSpeedToPosition();
         break;
       default:
         break;
     }
   }
+  return startUp;
 }
+
+
+// #include <AccelStepper.h>
+// #define DIR_PIN_Z 7
+// #define STEP_PIN_Z 4
+// #define STEPPER_ENABLE_PIN 8
+
+// AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN_Z, DIR_PIN_Z);
+// void setup()
+// {  
+//   stepper.setMaxSpeed(180);
+//   stepper.setAcceleration(800);
+//   pinMode(STEPPER_ENABLE_PIN, OUTPUT);
+//   digitalWrite(STEPPER_ENABLE_PIN, LOW);
+// }
+ 
+// void loop()
+// { 
+//   stepper.setCurrentPosition(1);   
+//   stepper.moveTo(50);
+//   while (stepper.currentPosition() != 50) // Full speed up to 300
+//     stepper.run();
+//   stepper.stop(); // Stop as fast as possible: sets new target
+//   stepper.runToPosition(); 
+//   delay(10000);
+//   // Now stopped after quickstop
+ 
+//   // Now go backwards
+//   stepper.moveTo(1);
+//   while (stepper.currentPosition() != 1) // Full speed basck to 0
+//     stepper.run();
+//   stepper.stop(); // Stop as fast as possible: sets new target
+//   stepper.runToPosition(); 
+//   delay(10000);
+//   // Now stopped after quickstop
+//   // stepper.runToNewPosition(50);
+   
+//   // wait();
+//   // stepper.runToNewPosition(0);
+//   // wait();
+ 
+// }
+
+// void wait(){
+//    digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+
+//   delay(10000);
+//     digitalWrite(STEPPER_ENABLE_PIN, LOW);
+// }
+
+
+// //Includes the Arduino Stepper Library
+// #include <Stepper.h>
+
+// // Defines the number of steps per rotation
+// const int stepsPerRevolution = 2038;
+
+// // Creates an instance of stepper class
+// // Pins entered in sequence IN1-IN3-IN2-IN4 for proper step sequence
+// Stepper myStepper = Stepper(stepsPerRevolution, 8, 10, 9, 11);
+
+// void setup() {
+//     // Nothing to do (Stepper Library sets pins as outputs)
+// }
+
+// void loop() {
+// 	// Rotate CW slowly at 5 RPM
+// 	myStepper.setSpeed(5);
+// 	myStepper.step(stepsPerRevolution);	
+//   	delay(1000);
+
+// 	// Rotate CCW quickly at 10 RPM
+// 	myStepper.setSpeed(10);
+// 	myStepper.step(-stepsPerRevolution);
+// 	delay(1000);
+// }
