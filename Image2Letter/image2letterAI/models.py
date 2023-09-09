@@ -4,20 +4,30 @@ from utils import load_transp_conv_weights
 import torch
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, font_path : str, transposed_kernel_size : int, transposed_stride : int, letters : list[str]):
+    def __init__(self, font_path : str, transposed_kernel_size : int, transposed_stride : int, max_letter_per_pix: int, letters : list[str]):
         super().__init__()
+        self.relu = nn.ReLU(True)
+        self.sigmoid = nn.Sigmoid()
         self.conv1 = models.resnet18(pretrained=True).conv1
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=100, kernel_size=5, stride=1, padding=2)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=len(letters), kernel_size=5, stride=1, padding=2)
+        nn.init.xavier_normal_(self.conv2.weight)
         transposed_convs_weights = load_transp_conv_weights(font_path, transposed_kernel_size, letters)
-        self.transp_conv = CustomTransposedConv2d(transposed_convs_weights, 100, 1, transposed_kernel_size, transposed_stride, 0)
+        self.transp_conv = CustomTransposedConv2d(transposed_convs_weights, len(letters), 1, transposed_kernel_size, transposed_stride, 0)
         self.transp_conv.requires_grad_(False)
+        self.max_letter_per_pix = max_letter_per_pix
+        self.num_letters = len(letters)
 
     def forward(self, x):
-       feat1 = nn.ReLU(self.conv1(x))
-       feat2 = nn.ReLU(self.conv2(feat1))
-       # TODO insert cap of max five letters per pixel
-       out_img = self.transp_conv(feat2)
-       return out_img
+       feat1 = self.relu(self.conv1(x))
+       feat2 = self.sigmoid(self.conv2(feat1))
+       # cap of max five letters per pixel
+       
+       _, indices = torch.topk(feat2, self.max_letter_per_pix, dim=1)
+       mask = torch.zeros_like(feat2)
+       mask = mask.scatter(1, indices, 1)
+       feat2_masked = feat2 * mask
+       out_img = self.transp_conv(feat2_masked)
+       return out_img, feat2_masked
 
 class CustomTransposedConv2d(nn.Module):
     def __init__(self, weights, in_channels, out_channels, kernel_size, stride=1, padding=0):
@@ -27,7 +37,7 @@ class CustomTransposedConv2d(nn.Module):
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
-        self.weights = weights
+        self.weights = nn.Parameter(weights)
         
         # Define the hard-coded weights (example weights)
         #self.weights = nn.Parameter(torch.randn(out_channels, in_channels, kernel_size, kernel_size))
