@@ -42,7 +42,17 @@ def get_img_transforms_train(img_size):
                     v2.RandomInvert(0.5),
                     v2.ColorJitter(0.5, 0.5, 0.5),
                     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                    ])                                                   
+                    ])  
+def get_img_transform_target(img_size):
+    return v2.Compose([v2.ToImageTensor(),
+                v2.ConvertImageDtype(torch.float32),
+                v2.Grayscale(num_output_channels=1),
+                v2.RandomCrop(img_size),
+                v2.RandomHorizontalFlip(p=0.2),
+                v2.RandomInvert(0.5),
+                v2.ColorJitter(0.5, 0.5, 0.5),
+                v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                ])                                                  
 
 def get_img_transforms_test(img_size):
     return v2.Compose([v2.ToImageTensor(), v2.ConvertImageDtype(torch.float32), v2.CenterCrop(img_size), v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])

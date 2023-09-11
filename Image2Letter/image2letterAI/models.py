@@ -6,7 +6,7 @@ import torch
 class NeuralNetwork(nn.Module):
     def __init__(self, font_path : str, transposed_kernel_size : int, transposed_stride : int, max_letter_per_pix: int, letters : list[str]):
         super().__init__()
-        self.relu = nn.ReLU(True)
+        self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
         self.conv1 = models.resnet18(pretrained=True).conv1
         self.conv2 = nn.Conv2d(in_channels=64, out_channels=len(letters), kernel_size=5, stride=1, padding=2)
@@ -18,7 +18,7 @@ class NeuralNetwork(nn.Module):
         self.num_letters = len(letters)
 
     def forward(self, x):
-       feat1 = self.relu(self.conv1(x))
+       feat1 = self.tanh(self.conv1(x))
        feat2 = self.sigmoid(self.conv2(feat1))
        # cap of max five letters per pixel
        

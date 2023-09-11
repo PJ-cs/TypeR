@@ -61,7 +61,7 @@
 #define STEPS_PER_PIXEL_Y 17
 
 // daisy wheel
-#define Z_PIN_4 12 //SPIN enable
+#define Z_PIN_4 13 //Spindle direction
 #define Z_PIN_3 7 // dirz
 #define Z_PIN_2 4 // stepz
 #define Z_PIN_1 10 //y+
@@ -71,7 +71,7 @@
 #define STEP_SIZE_Z  1
 // steps to take from startup jam position '*', to '.' as
 // current position, '.' is home position
-#define START_OFFSET_Z (50 * STEP_SIZE_Z)
+#define START_OFFSET_Z (51 * STEP_SIZE_Z)
 //steps for one full rotation, 100 letters on wheel
 #define MAX_STEPS_Z (NUMBER_LETTERS * STEP_SIZE_Z)
 #define ACCEL_Z 1500
@@ -224,6 +224,7 @@ void runStateMachines(){
 
   if(allStepperAtPosition()){ //trigger hammer
     //switch of stepper motor for the duration of hammer
+    delay(100);
     digitalWrite(STEPPER_ENABLE_PIN, HIGH);
     switch(stateHam){
       case WAITING:
@@ -282,9 +283,9 @@ void startCommand(){
    
     stepperZ.moveTo(currentZGoal);
      if(abs(currentZGoal- stepperZ.currentPosition()) < MAX_STEPS_Z){
-      stepperZ.setSpeed(MAX_SPEED_Z/4);
+      stepperZ.setSpeed(MAX_SPEED_Z);
     }else{
-      stepperZ.setSpeed(MAX_STEPS_Z-1);
+      stepperZ.setSpeed(MAX_STEPS_Z);
     }
     stateZ = RUNNING;
 
@@ -411,7 +412,7 @@ boolean doStartUpOnce(){
           //stepperZ.setCurrentPosition(1);
           // if horizontal at stop switch, try rotate daisy wheel one time,
           // will be physically blocked at '*' pos, then reset
-          stepperZ.moveTo(MAX_STEPS_Z*4); 
+          stepperZ.moveTo(-MAX_STEPS_Z*2); 
           stepperZ.setSpeed(MAX_SPEED_Z);
           stateZ = RUNNING;
         }
@@ -443,6 +444,7 @@ boolean doStartUpOnce(){
           digitalWrite(STEPPER_ENABLE_PIN, HIGH);
           stateZ = WAITING;
           stateX = WAITING;
+          delay(1000);
           break;
         }
         stepperZ.runSpeedToPosition();
