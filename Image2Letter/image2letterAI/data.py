@@ -56,10 +56,10 @@ def get_img_transforms_train_target(img_size):
     return v2.Compose([v2.ToImageTensor(),
                 v2.ConvertImageDtype(torch.float32),
                 v2.RandomCrop(img_size),
-                lambda x: v2.functional.invert(x),
                 v2.RandomHorizontalFlip(p=0.2),
                 v2.RandomInvert(0.5),
                 v2.ColorJitter(0.5, 0.5, 0.5),
+                lambda x: v2.functional.invert(x),
                 #v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 v2.Grayscale(num_output_channels=1),
                 ])                                                  
