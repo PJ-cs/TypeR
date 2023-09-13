@@ -4,7 +4,7 @@ from utils import load_transp_conv_weights
 import torch
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, font_path : str, transposed_kernel_size : int, transposed_stride : int, max_letter_per_pix: int, letters : list[str]):
+    def __init__(self, font_path : str, transposed_kernel_size : int, transposed_stride : int, max_letter_per_pix: int, letters : list[str], eps=1/255.):
         super().__init__()
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
@@ -16,6 +16,7 @@ class NeuralNetwork(nn.Module):
         self.transp_conv.requires_grad_(False)
         self.max_letter_per_pix = max_letter_per_pix
         self.num_letters = len(letters)
+        self.eps = eps
 
     def forward(self, x):
        feat1 = self.tanh(self.conv1(x))
@@ -27,6 +28,10 @@ class NeuralNetwork(nn.Module):
        mask = mask.scatter(1, indices, 1)
        feat2_masked = feat2 * mask
        out_img = self.transp_conv(feat2_masked)
+       out_img = torch.where(out_img < self.eps, torch.tensor(0.0), out_img)
+       #out_img = torch.where(out_img > 1.0, torch.tensor(1.0), out_img)
+       # TODO 
+
        return out_img, feat2_masked
 
 class CustomTransposedConv2d(nn.Module):
