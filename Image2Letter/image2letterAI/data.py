@@ -3,7 +3,8 @@ from torchvision.io import read_image, ImageReadMode
 from torch.utils.data import Dataset
 from torchvision.transforms import v2
 import torch
-
+import numpy as np
+import random
 
 class BigImagesDataset(Dataset):
     def __init__(self, imgs_dir, transform=None, target_transform=None):
@@ -26,13 +27,21 @@ class BigImagesDataset(Dataset):
 
     def __getitem__(self, idx):
         image = read_image(self.img_paths[idx], ImageReadMode.GRAY)
+        target = image.clone()
         label = self.img_labels[idx]
+        seed = np.random.randint(2147483647)
         if self.transform:
+            random.seed(seed)
+            torch.manual_seed(seed)
+            np.random.seed(seed)
             image = self.transform(image)
             
         if self.target_transform:
-            label = self.target_transform(label)
-        return image, label
+            random.seed(seed)
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            target = self.target_transform(target)
+        return image, target
     
 def get_img_transforms_train(img_size):
     return v2.Compose([v2.ToImageTensor(),
@@ -43,19 +52,23 @@ def get_img_transforms_train(img_size):
                     v2.ColorJitter(0.5, 0.5, 0.5),
                     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                     ])  
-def get_img_transform_target(img_size):
+def get_img_transforms_train_target(img_size):
     return v2.Compose([v2.ToImageTensor(),
                 v2.ConvertImageDtype(torch.float32),
-                v2.Grayscale(num_output_channels=1),
                 v2.RandomCrop(img_size),
                 v2.RandomHorizontalFlip(p=0.2),
                 v2.RandomInvert(0.5),
                 v2.ColorJitter(0.5, 0.5, 0.5),
                 v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                v2.Grayscale(num_output_channels=1),
                 ])                                                  
 
 def get_img_transforms_test(img_size):
     return v2.Compose([v2.ToImageTensor(), v2.ConvertImageDtype(torch.float32), v2.CenterCrop(img_size), v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-def get_label_transforms():
-    return v2.Compose([lambda x: torch.tensor(x)])
+def get_img_transforms_test_target(img_size):
+    return v2.Compose([v2.ToImageTensor(),
+                        v2.ConvertImageDtype(torch.float32),
+                          v2.CenterCrop(img_size),
+                            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                            v2.Grayscale(num_output_channels=1)])
