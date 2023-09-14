@@ -1,10 +1,10 @@
-from typing import Any
+from typing import Any, Optional
 import lightning.pytorch as pl
 from lightning.pytorch.utilities.types import EVAL_DATALOADERS, STEP_OUTPUT, TRAIN_DATALOADERS
 from models import NeuralNetwork
 from utils import TypeRLoss
 from torch import optim
-
+import torchvision
 
 class LitModel(pl.LightningModule):
     def __init__(self, 
@@ -29,6 +29,27 @@ class LitModel(pl.LightningModule):
         out_img, key_strokes = self.model(img_in)
         loss = self.loss.forward(key_strokes, out_img, img_target)
         self.log("train_loss", float(loss))
+        return loss
+    
+    def validation_step(self, batch, batch_idx) -> STEP_OUTPUT | None:
+        img_in, img_target, label = batch
+        out_img, key_strokes = self.model(img_in)
+        loss = self.loss.forward(key_strokes, out_img, img_target)
+        self.log("val_loss", float(loss))
+        if batch_idx % 6 == 0:
+            grid = torchvision.utils.make_grid(out_img[:4])
+            self.logger.experiment.add_image('generated_images', grid, 0)
+
+        return loss
+    
+    def test_step(self, batch, batch_idx) -> STEP_OUTPUT | None:
+        img_in, img_target, label = batch
+        out_img, key_strokes = self.model(img_in)
+        loss = self.loss.forward(key_strokes, out_img, img_target)
+        self.log("test_loss", float(loss))
+        if batch_idx % 6 == 0:
+            grid = torchvision.utils.make_grid(out_img[:4])
+            self.logger.experiment.add_image('generated_images', grid, 0)
         return loss
     
     def configure_optimizers(self) -> Any:

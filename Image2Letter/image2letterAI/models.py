@@ -8,7 +8,7 @@ class NeuralNetwork(nn.Module):
         super().__init__()
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
-        self.conv1 = models.resnet18(pretrained=True).conv1
+        self.conv1 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT).conv1
         self.conv2 = nn.Conv2d(in_channels=64, out_channels=len(letters), kernel_size=5, stride=1, padding=2)
         nn.init.xavier_normal_(self.conv2.weight)
         transposed_convs_weights = load_transp_conv_weights(font_path, transposed_kernel_size, letters)
