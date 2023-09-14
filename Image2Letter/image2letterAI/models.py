@@ -4,7 +4,7 @@ from utils import load_transp_conv_weights
 import torch
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, font_path : str, transposed_kernel_size : int, transposed_stride : int, max_letter_per_pix: int, letters : list[str], eps=1/255.):
+    def __init__(self, font_path : str, transposed_kernel_size : int, transposed_stride : int, transposed_padding: int, max_letter_per_pix: int, letters : list[str], eps=1/255.):
         super().__init__()
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
@@ -12,7 +12,8 @@ class NeuralNetwork(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=64, out_channels=len(letters), kernel_size=5, stride=1, padding=2)
         nn.init.xavier_normal_(self.conv2.weight)
         transposed_convs_weights = load_transp_conv_weights(font_path, transposed_kernel_size, letters)
-        self.transp_conv = CustomTransposedConv2d(transposed_convs_weights, len(letters), 1, transposed_kernel_size, transposed_stride, 0)
+        # transposed padding = 31
+        self.transp_conv = CustomTransposedConv2d(transposed_convs_weights, len(letters), 1, transposed_kernel_size, transposed_stride, transposed_padding)
         self.transp_conv.requires_grad_(False)
         self.max_letter_per_pix = max_letter_per_pix
         self.num_letters = len(letters)
@@ -22,7 +23,7 @@ class NeuralNetwork(nn.Module):
        feat1 = self.tanh(self.conv1(x))
        feat2 = self.sigmoid(self.conv2(feat1))
        # cap of max five letters per pixel
-       
+
        _, indices = torch.topk(feat2, self.max_letter_per_pix, dim=1)
        mask = torch.zeros_like(feat2)
        mask = mask.scatter(1, indices, 1)
