@@ -65,7 +65,7 @@
 #define Z_PIN_3 7 // dirz
 #define Z_PIN_2 4 // stepz
 #define Z_PIN_1 10 //y+
-#define MAX_SPEED_Z 100
+#define MAX_SPEED_Z 300
 #define HOMING_SPEED_Z 700
 #define NUMBER_LETTERS 100
 #define STEP_SIZE_Z  1
@@ -356,7 +356,7 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
 
 void confirmCommandRecieved() {
   Serial.print("A");
-  }
+}
 
 bool allAreWaiting() {
   return stateA == WAITING && stateX == WAITING && stateY == WAITING && stateZ == WAITING &&
