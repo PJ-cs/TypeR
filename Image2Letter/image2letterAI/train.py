@@ -25,31 +25,11 @@ class LitModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx : int) -> STEP_OUTPUT:
         img_in, img_target = batch
-        key_strokes, out_img = self.model(batch)
+        key_strokes, out_img = self.model(img_in)
         loss = self.loss.forward(key_strokes, out_img, img_target)
         self.log("train_loss", float(loss))
         return loss
     
     def configure_optimizers(self) -> Any:
-        # TODO
         optimizer = optim.Adam(self.parameters, lr=self.lr)
         return optimizer
-
-    def train_dataloader(self) -> TRAIN_DATALOADERS:
-        # TODO
-
-        return super().train_dataloader()
-    
-    def val_dataloader(self) -> EVAL_DATALOADERS:
-        # TODO
-
-        return super().val_dataloader()
-    
-    def test_dataloader(self) -> EVAL_DATALOADERS:
-        # TODO
-
-        return super().test_dataloader()
-    
-    def prepare_data(self) -> None:
-        # TODO
-        return super().prepare_data()

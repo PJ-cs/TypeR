@@ -1,13 +1,19 @@
 import os
 from torchvision.io import read_image, ImageReadMode
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset, DataLoader
 from torchvision.transforms import v2
 import torch
 import numpy as np
 import random
+import pytorch_lightning as pl
+from utils import set_seeds
+from pathlib import Path
+import config.config as config
+import requests
+import cv2
 
 class BigImagesDataset(Dataset):
-    def __init__(self, imgs_dir, transform=None, target_transform=None):
+    def __init__(self, imgs_dir, transform : v2.Compose, target_transform : v2.Compose):
         self.img_labels = []
         self.img_paths = []
         self.label_dict = {}
@@ -30,32 +36,31 @@ class BigImagesDataset(Dataset):
         target = image.clone()
         label = self.img_labels[idx]
         seed = np.random.randint(2147483647)
-        if self.transform:
-            random.seed(seed)
-            torch.manual_seed(seed)
-            np.random.seed(seed)
-            image = self.transform(image)
-            
-        if self.target_transform:
-            random.seed(seed)
-            torch.manual_seed(seed)
-            np.random.seed(seed)
-            target = self.target_transform(target)
-        return image, target
+        
+        random.seed(seed)
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        image = self.transform(image)
     
-def get_img_transforms_train(img_size):
+        random.seed(seed)
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        target = self.target_transform(target)
+        return image, target, torch.tensor(label)
+    
+def get_img_transforms_train(img_size: int)-> v2.Compose:
     return v2.Compose([v2.ToImageTensor(),
                     v2.ConvertImageDtype(torch.float32),
-                    v2.RandomCrop(img_size),
+                    v2.RandomCrop((img_size, img_size)),
                     v2.RandomHorizontalFlip(p=0.2),
                     v2.RandomInvert(0.5),
                     v2.ColorJitter(0.5, 0.5, 0.5),
                     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                     ])  
-def get_img_transforms_train_target(img_size):
+def get_img_transforms_train_target(img_size: int)-> v2.Compose:
     return v2.Compose([v2.ToImageTensor(),
                 v2.ConvertImageDtype(torch.float32),
-                v2.RandomCrop(img_size),
+                v2.RandomCrop((img_size, img_size)),
                 v2.RandomHorizontalFlip(p=0.2),
                 v2.RandomInvert(0.5),
                 v2.ColorJitter(0.5, 0.5, 0.5),
@@ -64,13 +69,129 @@ def get_img_transforms_train_target(img_size):
                 v2.Grayscale(num_output_channels=1),
                 ])                                                  
 
-def get_img_transforms_test(img_size):
-    return v2.Compose([v2.ToImageTensor(), v2.ConvertImageDtype(torch.float32), v2.CenterCrop(img_size), v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+def get_img_transforms_test(img_size:int) -> v2.Compose:
+    return v2.Compose([v2.ToImageTensor(), v2.ConvertImageDtype(torch.float32), v2.CenterCrop((img_size, img_size)), v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-def get_img_transforms_test_target(img_size):
+def get_img_transforms_test_target(img_size:int)-> v2.Compose:
     return v2.Compose([v2.ToImageTensor(),
                         v2.ConvertImageDtype(torch.float32),
-                          v2.CenterCrop(img_size),
+                          v2.CenterCrop((img_size, img_size)),
                           lambda x: v2.functional.invert(x),
                             #v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                             v2.Grayscale(num_output_channels=1)])
+
+class BigImagesDataModule(pl.LightningDataModule):
+    def __init__(self, 
+                 imgs_dir: str,
+                 img_size: int,
+                 batch_size : int,
+                 val_ratio = 0.2,
+                 test_ratio = 0.2,
+                 ) -> None:
+        super().__init__()
+        self.imgs_dir = imgs_dir
+        self.batch_size = batch_size
+        self.val_ratio = val_ratio
+        self.test_ratio = test_ratio
+        self.transform_img_train = get_img_transforms_train(img_size)
+        self.transform_target_train = get_img_transforms_train_target(img_size)
+        self.transform_img_test = get_img_transforms_test(img_size)
+        self.transform_target_test = get_img_transforms_test_target(img_size)
+        set_seeds()
+
+    def setup(self, stage: str) -> None:
+        dataset_train_full = BigImagesDataset(self.imgs_dir, self.transform_img_train, self.transform_target_train)
+        datset_test_full = BigImagesDataset(self.imgs_dir, self.transform_img_test, self.transform_target_test)
+
+        train_indices, val_indices, test_indices = train_val_test_split(len(dataset_train_full), self.val_ratio, self.test_ratio)
+        
+        self.ds_train = Subset(dataset_train_full, train_indices)
+        self.ds_val = Subset(datset_test_full, val_indices)
+        self.ds_test = Subset(datset_test_full, test_indices)
+
+    def train_dataloader(self):
+        return DataLoader(self.ds_train, batch_size=self.batch_size)
+
+    def val_dataloader(self):
+        return DataLoader(self.ds_val, batch_size=self.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.ds_test, batch_size=self.batch_size)
+
+    # TODO for distributed training on multiple nodes to get data
+    # def prepare_data(self) -> None:
+    #     elt_data()
+    #     remove_bad_images()
+    #     return
+
+
+def elt_data():
+    """Extract, load and transform our data assets."""
+    # Extract + Load
+    url_file_paths: list[str] = [file.path for file in os.scandir(config.IMAGES_URL_DIR)]
+    # courtesy to https://pyimagesearch.com/2017/12/04/how-to-create-a-deep-learning-dataset-using-google-images/
+    for url_file in url_file_paths:
+        links = open(url_file).read().strip().split("\n")
+        output_path = Path(config.TRAINING_IMGS_DIR, os.path.basename(url_file)[:-4])
+        os.makedirs(output_path, exist_ok=True)
+        total = 0
+        for url in links:
+            try:
+                p = os.path.sep.join([str(output_path), "{}.jpg".format(
+                    str(total).zfill(8))])
+                if (os.path.exists(p)):
+                    continue
+                # try to download the image
+                r = requests.get(url, timeout=60)
+                # save the image to disk
+                f = open(p, "wb")
+                f.write(r.content)
+                f.close()
+                # update the counter
+                print("[INFO] downloaded: {}".format(p))
+                total += 1
+            # handle if any exceptions are thrown during the download process
+            except:
+                print("[INFO] error downloading {}...skipping".format(p))
+
+
+def remove_bad_images():
+    for folder in os.scandir(config.TRAINING_IMGS_DIR):
+        files :list[str] = os.listdir(folder.path)
+        for file_path in files:
+            try:
+                _ = cv2.imread(os.path.join(folder.path, file_path), cv2.IMREAD_GRAYSCALE)  
+            except:
+                os.remove(file_path)
+                print("errounous image, deleted ", file_path)
+        
+
+def train_val_test_split(dataset_size : int, val_ratio=0.1, test_ratio=0.1, random_seed=42) -> tuple(list[int], list[int], list[int]):
+    """
+    Split a dataset into train, validation, and test sets by generating lists of indices.
+
+    Args:
+        dataset_size (int): The total number of data points in the dataset.
+        val_ratio (float): The ratio of validation data (default is 0.1).
+        test_ratio (float): The ratio of test data (default is 0.1).
+        random_seed (int or None): Seed for random number generation (optional).
+
+    Returns:
+        train_indices (list of ints): Indices for the training set.
+        val_indices (list of ints): Indices for the validation set.
+        test_indices (list of ints): Indices for the test set.
+    """
+    if random_seed is not None:
+        np.random.seed(random_seed)
+
+    indices = np.arange(dataset_size)
+    np.random.shuffle(indices)
+
+    val_size = int(val_ratio * dataset_size)
+    test_size = int(test_ratio * dataset_size)
+
+    val_indices = indices[:val_size]
+    test_indices = indices[val_size:val_size + test_size]
+    train_indices = indices[val_size + test_size:]
+
+    return train_indices, val_indices, test_indices
