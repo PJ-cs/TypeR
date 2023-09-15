@@ -1,10 +1,11 @@
 from typing import Any, Optional
 import lightning.pytorch as pl
-from lightning.pytorch.utilities.types import EVAL_DATALOADERS, STEP_OUTPUT, TRAIN_DATALOADERS
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from models import NeuralNetwork
 from utils import TypeRLoss
 from torch import optim
 import torchvision
+import config.config as config
 
 class LitModel(pl.LightningModule):
     def __init__(self, 
@@ -55,3 +56,6 @@ class LitModel(pl.LightningModule):
     def configure_optimizers(self) -> Any:
         optimizer = optim.Adam(self.parameters, lr=self.lr)
         return optimizer
+
+net = LitModel(str(config.FONT_PATH), 64, round(64*0.035), 31, 5, config.TYPEWRITER_CONFIG["letterList"], lr=0.0001, alpha=1.0, beta=0, gamma=0)
+trainer = pl.Trainer(accelerator="gpu", precision=16, max_epochs=10, overfit_batches=1, )

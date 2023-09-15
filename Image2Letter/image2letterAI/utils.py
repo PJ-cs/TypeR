@@ -87,3 +87,18 @@ class TypeRLoss(nn.Module):
         return self.alpha * mse_loss # + self.beta * n_key_strokes_loss + self.gamma * key_variety_loss
         
 
+def calc_receptive_field(layer_params : list[tuple[int, int, int]]):
+    """
+    layer_params : (k_l kernel size, s_l stride, p_l padding)
+    """
+    # https://www.baeldung.com/cs/cnn-receptive-field-size
+    r = 1
+    S = 1
+
+    for l in range(0, len(layer_params)):
+        for i in range(0, l):
+            S *= layer_params[i][1]
+        r += (layer_params[l][0] - 1) * S
+        S=1
+    return r
+

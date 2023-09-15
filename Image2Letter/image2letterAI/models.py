@@ -4,7 +4,16 @@ from utils import load_transp_conv_weights
 import torch
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, font_path : str, transposed_kernel_size : int, transposed_stride : int, transposed_padding: int, max_letter_per_pix: int, letters : list[str], eps=1/255.):
+    # model https://medium.com/analytics-vidhya/lets-discuss-encoders-and-style-transfer-c0494aca6090
+    # https://colab.research.google.com/github/usuyama/pytorch-unet/blob/master/pytorch_unet_resnet18_colab.ipynb
+    # https://gist.github.com/samson-wang/a6073c18f2adf16e0ab5fb95b53db3e6
+
+    # code https://github.com/ray-project/ray/blob/master/python/ray/tune/examples/mnist_ptl_mini.py
+    # https://docs.ray.io/en/latest/tune/examples/includes/mlflow_ptl_example.html
+    def __init__(self, 
+                 config,
+                 data_dir = None,
+                 font_path : str, transposed_kernel_size : int, transposed_stride : int, transposed_padding: int, max_letter_per_pix: int, letters : list[str], eps=1/255.):
         super().__init__()
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()

@@ -81,6 +81,7 @@ def get_img_transforms_test_target(img_size:int)-> v2.Compose:
                             v2.Grayscale(num_output_channels=1)])
 
 class BigImagesDataModule(pl.LightningDataModule):
+    # https://github.com/ray-project/ray/blob/master/python/ray/tune/examples/mnist_ptl_mini.py
     def __init__(self, 
                  imgs_dir: str,
                  img_size: int,
@@ -105,9 +106,11 @@ class BigImagesDataModule(pl.LightningDataModule):
 
         train_indices, val_indices, test_indices = train_val_test_split(len(dataset_train_full), self.val_ratio, self.test_ratio)
         
-        self.ds_train = Subset(dataset_train_full, train_indices)
-        self.ds_val = Subset(datset_test_full, val_indices)
-        self.ds_test = Subset(datset_test_full, test_indices)
+        if stage == "fit" or stage is None:
+            self.ds_train = Subset(dataset_train_full, train_indices)
+            self.ds_val = Subset(datset_test_full, val_indices)
+        if stage == "test" or stage is None:
+            self.ds_test = Subset(datset_test_full, test_indices)
 
     def train_dataloader(self):
         return DataLoader(self.ds_train, batch_size=self.batch_size)
