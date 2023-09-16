@@ -11,12 +11,14 @@ DATA_DIR = Path(ROOT_DIR, "data")
 TYPEWRITER_DIR = Path(DATA_DIR, TYPEWRITER_NAME)
 IMAGES_URL_DIR = Path(DATA_DIR, "trainingImagesURLs")
 TRAINING_IMGS_DIR = Path(DATA_DIR, "trainingImages")
+ML_FLOW_TRACKING_URI = Path(DATA_DIR, "mlflow-run-logs")
 
 # Create dirs
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 TYPEWRITER_DIR.mkdir(parents=True, exist_ok=True)
 IMAGES_URL_DIR.mkdir(parents=True, exist_ok=True)
 TRAINING_IMGS_DIR.mkdir(parents=True, exist_ok=True)
+ML_FLOW_TRACKING_URI.mkdir(parents=True, exist_ok=True)
 
 BLOB_STORE_URL = "gdrive://1xfnkAm5QsUc9l2H4pWZbaOO4P7DbGLv1"
 

@@ -8,7 +8,7 @@ import random
 import pytorch_lightning as pl
 from utils import set_seeds
 from pathlib import Path
-import config.config as config
+import config.config as configFile
 import requests
 import cv2
 
@@ -122,20 +122,21 @@ class BigImagesDataModule(pl.LightningDataModule):
         return DataLoader(self.ds_test, batch_size=self.batch_size)
 
     # TODO for distributed training on multiple nodes to get data
-    # def prepare_data(self) -> None:
-    #     elt_data()
-    #     remove_bad_images()
-    #     return
+    def prepare_data(self) -> None:
+        # elt_data()
+        # print("removing bad immages...")
+        # remove_bad_images()
+        return
 
 
 def elt_data():
     """Extract, load and transform our data assets."""
     # Extract + Load
-    url_file_paths: list[str] = [file.path for file in os.scandir(config.IMAGES_URL_DIR)]
+    url_file_paths: list[str] = [file.path for file in os.scandir(configFile.IMAGES_URL_DIR)]
     # courtesy to https://pyimagesearch.com/2017/12/04/how-to-create-a-deep-learning-dataset-using-google-images/
     for url_file in url_file_paths:
         links = open(url_file).read().strip().split("\n")
-        output_path = Path(config.TRAINING_IMGS_DIR, os.path.basename(url_file)[:-4])
+        output_path = Path(configFile.TRAINING_IMGS_DIR, os.path.basename(url_file)[:-4])
         os.makedirs(output_path, exist_ok=True)
         total = 0
         for url in links:
@@ -159,17 +160,17 @@ def elt_data():
 
 
 def remove_bad_images():
-    for folder in os.scandir(config.TRAINING_IMGS_DIR):
+    for folder in os.scandir(configFile.TRAINING_IMGS_DIR):
         files :list[str] = os.listdir(folder.path)
         for file_path in files:
             try:
-                _ = cv2.imread(os.path.join(folder.path, file_path), cv2.IMREAD_GRAYSCALE)  
+                _ = read_image(os.path.join(folder.path, file_path), ImageReadMode.GRAY)  
             except:
-                os.remove(file_path)
+                os.remove(os.path.join(folder.path, file_path))
                 print("errounous image, deleted ", file_path)
         
 
-def train_val_test_split(dataset_size : int, val_ratio=0.1, test_ratio=0.1, random_seed=42) -> tuple(list[int], list[int], list[int]):
+def train_val_test_split(dataset_size : int, val_ratio=0.1, test_ratio=0.1, random_seed=42) -> tuple[list[int], list[int], list[int]]:
     """
     Split a dataset into train, validation, and test sets by generating lists of indices.
 

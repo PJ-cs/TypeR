@@ -3,16 +3,19 @@ import random
 import torch
 import PIL.ImageFont as ImageFont
 from PIL import Image, ImageDraw
-from config import config
 import torchvision.transforms as transforms
 import torch.nn as nn
-
+import os
 
 def set_seeds(seed=42):
     """Set seeds for reproducibility."""
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    eval("setattr(torch.backends.cudnn, 'deterministic', True)")
+    eval("setattr(torch.backends.cudnn, 'benchmark', False)")
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
 class UnNormalize(object):
     def __init__(self, mean, std):

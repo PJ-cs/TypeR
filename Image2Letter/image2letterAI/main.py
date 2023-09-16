@@ -1,5 +1,5 @@
 import os
-import config.config as config
+import config.config as configFile
 import requests
 from pathlib import Path
 from utils import load_transp_conv_weights

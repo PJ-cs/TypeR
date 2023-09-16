@@ -1,61 +1,119 @@
-from typing import Any, Optional
-import lightning.pytorch as pl
-from lightning.pytorch.utilities.types import STEP_OUTPUT
-from models import NeuralNetwork
-from utils import TypeRLoss
-from torch import optim
-import torchvision
-import config.config as config
+import pytorch_lightning as pl
+from models import TypeRNet
+from data import BigImagesDataModule
+import config.config as configFile
+from ray.air.integrations.mlflow import setup_mlflow
+from ray.tune.integration.pytorch_lightning import TuneReportCallback
+from ray import tune, air
+import datetime
+import mlflow
+from lightning.pytorch.loggers import MLFlowLogger
 
-class LitModel(pl.LightningModule):
-    def __init__(self, 
-                font_path : str,
-                transposed_kernel_size : int,
-                transposed_stride : int,
-                transposed_padding : int,
-                max_letter_per_pix: int,
-                letters : list[str],
-                lr : float,
-                alpha: float,
-                beta: float,
-                gamma: float                
-                ) -> None:
-        super().__init__()
-        self.lr = lr
-        self.model = NeuralNetwork(font_path, transposed_kernel_size, transposed_stride, transposed_padding, max_letter_per_pix, letters, 1/255.)
-        self.loss = TypeRLoss(max_letter_per_pix, alpha, beta, gamma)
 
-    def training_step(self, batch, batch_idx : int) -> STEP_OUTPUT:
-        img_in, img_target, label = batch
-        out_img, key_strokes = self.model(img_in)
-        loss = self.loss.forward(key_strokes, out_img, img_target)
-        self.log("train_loss", float(loss))
-        return loss
+def train_typeR(config, num_gpus=0):
+    accelerator = "gpu" if num_gpus > 0 else "cpu"
+    num_gpus = num_gpus if num_gpus > 0 else 1
+
+    mlflow = setup_mlflow(
+        config,
+        experiment_name=config.get("experiment_name", None),
+        tracking_uri=config.get("tracking_uri", None),
+    )
+
+    model = TypeRNet(config)
+    # TODO num_workers
+    dm =BigImagesDataModule(
+        imgs_dir = config["img_dir"],
+        img_size = config["img_size"],
+        batch_size=config["batch_size"],
+        val_ratio = config["val_ratio"],
+        test_ratio = config["test_ratio"]
+    )
+    metrics = {"loss": "ptl/val_loss", "acc": "ptl/val_accuracy"}
+    mlflow.autolog()
+    trainer = pl.Trainer(
+        precision=config["precision"],
+        max_epochs=config["num_epochs"],
+        accelerator=accelerator,
+        devices=num_gpus,
+        deterministic=True,
+        callbacks=[TuneReportCallback(metrics, on="validation_end")],
+    )
+    trainer.fit(model, dm)
+
+
+def tune_typeR(
+    num_samples=10,
+    gpus_per_trial=0,
+):
     
-    def validation_step(self, batch, batch_idx) -> STEP_OUTPUT | None:
-        img_in, img_target, label = batch
-        out_img, key_strokes = self.model(img_in)
-        loss = self.loss.forward(key_strokes, out_img, img_target)
-        self.log("val_loss", float(loss))
-        if batch_idx % 6 == 0:
-            grid = torchvision.utils.make_grid(out_img[:4])
-            self.logger.experiment.add_image('generated_images', grid, 0)
+    config = {
+    "experiment_name": "simple Net "+ str(datetime.datetime.now()),
+    "tracking_uri": str(configFile.ML_FLOW_TRACKING_URI),
 
-        return loss
-    
-    def test_step(self, batch, batch_idx) -> STEP_OUTPUT | None:
-        img_in, img_target, label = batch
-        out_img, key_strokes = self.model(img_in)
-        loss = self.loss.forward(key_strokes, out_img, img_target)
-        self.log("test_loss", float(loss))
-        if batch_idx % 6 == 0:
-            grid = torchvision.utils.make_grid(out_img[:4])
-            self.logger.experiment.add_image('generated_images', grid, 0)
-        return loss
-    
-    def configure_optimizers(self) -> Any:
-        optimizer = optim.Adam(self.parameters, lr=self.lr)
-        return optimizer
+    "lr" : tune.loguniform(1e-4, 1e-1),
+    "alpha" : 1.,
+    "beta" : 0.,
+    "gamma" : 0.,
 
-net = LitModel(str(config.FONT_PATH), 64, round(64*0.035), 31, 5, config.TYPEWRITER_CONFIG["letterList"], lr=0.0001, alpha=1.0, beta=0, gamma=0)
-trainer = pl.Trainer(accelerator="gpu", precision=16, max_epochs=10, overfit_batches=1, )
+    "img_dir" : str(configFile.TRAINING_IMGS_DIR),
+    "img_size" : 224,
+    "batch_size": tune.choice([1]),
+    "val_ratio" : 0.2,
+    "test_ratio" : 0.2,
+    "num_epochs": 5,
+    "precision": tune.choice([32]),
+    
+    "font_path": str(configFile.FONT_PATH),
+    "transposed_kernel_size" : 64,
+    "transposed_stride": round(64*0.035),
+    "transposed_padding": 31,
+    "max_letter_per_pix": 5,
+    "letters": configFile.TYPEWRITER_CONFIG["letterList"],
+    "eps_out": 1./100,
+    }
+
+    # # Download data, done by pytorch
+    # BigImagesDataModule(
+    #     imgs_dir = config["img_dir"],
+    #     img_size = config["img_size"],
+    #     batch_size=4,
+    #     val_ratio = config["val_ratio"],
+    #     test_ratio = config["test_ratio"]
+    # ).prepare_data()
+
+    # Set the MLflow experiment, or create it if it does not exist.
+    mlflow.set_tracking_uri(config["tracking_uri"])
+    mlflow.set_experiment(config["experiment_name"])
+
+    # config = {
+    #     "layer_1": tune.choice([32, 64, 128]),
+    #     "layer_2": tune.choice([64, 128, 256]),
+    #     "lr": tune.loguniform(1e-4, 1e-1),
+    #     "batch_size": tune.choice([32, 64, 128]),
+    #     "experiment_name": experiment_name,
+    #     "tracking_uri": mlflow.get_tracking_uri(),
+    #     "data_dir": os.path.join(tempfile.gettempdir(), "mnist_data_"),
+    #     "num_epochs": num_epochs,
+    # }
+
+    trainable = tune.with_parameters(
+        train_typeR,
+        num_gpus=gpus_per_trial,
+    )
+
+    tuner = tune.Tuner(
+        tune.with_resources(trainable, resources={"cpu": 1, "gpu": gpus_per_trial}),
+        tune_config=tune.TuneConfig(
+            metric="loss",
+            mode="min",
+            num_samples=num_samples,
+        ),
+        run_config=air.RunConfig(
+            name="tune_typeR",
+        ),
+        param_space=config,
+    )
+    results = tuner.fit()
+
+    print("Best hyperparameters found were: ", results.get_best_result().config)
