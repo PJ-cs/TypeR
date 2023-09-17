@@ -87,7 +87,7 @@ class TypeRNet(pl.LightningModule):
         self.log("val_loss", float(loss))
         if batch_idx % 6 == 0:
             grid = torchvision.utils.make_grid(out_img[:4], normalize=True).permute(1,2,0).numpy()
-            mlflow.log_image(grid, 'validation.png')
+            mlflow.log_image(grid, f'validation_{batch_idx}.png')
 
         return {"val_loss" : loss}
     
