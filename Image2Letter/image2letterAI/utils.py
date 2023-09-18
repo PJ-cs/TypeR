@@ -37,12 +37,12 @@ class UnNormalize(object):
 
 def convert_rgb_tensor_for_plot(tensor_img: torch.Tensor) -> torch.Tensor:
     tmp = UnNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(tensor_img)
-    tmp = tmp.permute(0,2,3,1)
+    #tmp = tmp.permute(0,2,3,1)
     return tmp
 
 def convert_gray_tensor_for_plot(tensor_img: torch.Tensor) -> torch.Tensor:
     tmp = UnNormalize(mean=[0.445], std=[0.269])(tensor_img)
-    tmp = tmp.permute(0,2,3,1)
+    #tmp = tmp.permute(0,2,3,1)
     return tmp
 
 def load_transp_conv_weights(font_path: str, kernel_size: int, letters: list[str]):
