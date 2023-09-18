@@ -66,7 +66,7 @@ def get_img_transforms_train_target(img_size: int)-> v2.Compose:
                 v2.ColorJitter(0.5, 0.5, 0.5),
                 lambda x: v2.functional.invert(x),
                 v2.Grayscale(num_output_channels=1),
-                v2.Normalize(mean=[0.445], std=[0.269]),
+                #v2.Normalize(mean=[0.445], std=[0.269]),
                 ])                                                  
 
 def get_img_transforms_test(img_size:int) -> v2.Compose:
@@ -78,7 +78,7 @@ def get_img_transforms_test_target(img_size:int)-> v2.Compose:
                         v2.CenterCrop((img_size, img_size)),
                         lambda x: v2.functional.invert(x),
                         v2.Grayscale(num_output_channels=1),
-                        v2.Normalize(mean=[0.445], std=[0.269]),
+                        #v2.Normalize(mean=[0.445], std=[0.269]),
                         ])
 
 class BigImagesDataModule(pl.LightningDataModule):

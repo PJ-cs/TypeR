@@ -57,7 +57,7 @@ class TypeRNet(pl.LightningModule):
 
     def forward(self, x):
        feat1 = torch.tanh(self.conv1(x))
-       feat2 = torch.tanh(self.conv2(feat1))
+       feat2 = torch.sigmoid(self.conv2(feat1))
        # cap of max five letters per pixel
 
        _, indices = torch.topk(feat2, self.max_letter_per_pix, dim=1)
