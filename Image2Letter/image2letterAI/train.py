@@ -10,7 +10,7 @@ import mlflow
 from lightning.pytorch.loggers import MLFlowLogger
 
 
-def train_typeR(config, num_gpus=0):
+def train_typeR(config, num_gpus=0, num_workers=1):
     accelerator = "gpu" if num_gpus > 0 else "cpu"
     num_gpus = num_gpus if num_gpus > 0 else 1
 
@@ -21,10 +21,11 @@ def train_typeR(config, num_gpus=0):
     )
 
     model = TypeRNet(config)
-    # TODO num_workers
     dm =BigImagesDataModule(
         imgs_dir = config["img_dir"],
         img_size = config["img_size"],
+        img_size_test = config["img_size_test"],
+        num_workers=num_workers,
         batch_size=config["batch_size"],
         val_ratio = config["val_ratio"],
         test_ratio = config["test_ratio"]
@@ -45,6 +46,7 @@ def train_typeR(config, num_gpus=0):
 def tune_typeR(
     num_samples=10,
     gpus_per_trial=0,
+    num_workers=1,
 ):
     
     config = {
@@ -58,6 +60,7 @@ def tune_typeR(
 
     "img_dir" : str(configFile.TRAINING_IMGS_DIR),
     "img_size" : 224,
+    "img_size_test": 448,
     "batch_size": tune.choice([1]),
     "val_ratio" : 0.2,
     "test_ratio" : 0.2,
@@ -100,10 +103,11 @@ def tune_typeR(
     trainable = tune.with_parameters(
         train_typeR,
         num_gpus=gpus_per_trial,
+        num_workers=num_workers,
     )
 
     tuner = tune.Tuner(
-        tune.with_resources(trainable, resources={"cpu": 1, "gpu": gpus_per_trial}),
+        tune.with_resources(trainable, resources={"cpu": 2, "gpu": gpus_per_trial}),
         tune_config=tune.TuneConfig(
             metric="loss",
             mode="min",

@@ -20,3 +20,8 @@ init: venv
 
 activate-venv:
 	source .venv/bin/activate
+
+.ONESHELL:
+dvc-push: 
+	dvc add data
+	dvc push

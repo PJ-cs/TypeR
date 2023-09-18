@@ -6,10 +6,10 @@ from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import optim
 import torchvision
 import torch
-import os
 import pytorch_lightning as pl
 from utils import TypeRLoss
 import mlflow
+from utils import convert_rgb_tensor_for_plot, convert_gray_tensor_for_plot
 
 class TypeRNet(pl.LightningModule):
     # model https://medium.com/analytics-vidhya/lets-discuss-encoders-and-style-transfer-c0494aca6090
@@ -86,8 +86,10 @@ class TypeRNet(pl.LightningModule):
         self.val_loss_list.append(loss)
         self.log("val_loss", float(loss))
         if batch_idx % 6 == 0:
-            grid = torchvision.utils.make_grid(out_img[:4], normalize=True).permute(1,2,0).numpy()
-            mlflow.log_image(grid, f'validation_{batch_idx}.png')
+            grid_in = convert_rgb_tensor_for_plot(torchvision.utils.make_grid(img_in[:4])).cpu().numpy()
+            grid_out = convert_gray_tensor_for_plot(torchvision.utils.make_grid(out_img[:4])).cpu().numpy()
+            mlflow.log_image(grid_in, f'validation_rgb_{self.current_epoch}_{batch_idx}.png')
+            mlflow.log_image(grid_out, f'validation_out_{self.current_epoch}_{batch_idx}.png')
 
         return {"val_loss" : loss}
     
@@ -102,8 +104,10 @@ class TypeRNet(pl.LightningModule):
         loss = self.loss.forward(key_strokes, out_img, img_target)
         self.log("test_loss", float(loss))
         if batch_idx % 6 == 0:
-            grid = torchvision.utils.make_grid(out_img[:4])
-            self.logger.experiment.add_image('generated_images', grid, 0)
+            grid_in = convert_rgb_tensor_for_plot(torchvision.utils.make_grid(img_in[:4])).cpu().numpy()
+            grid_out = convert_gray_tensor_for_plot(torchvision.utils.make_grid(out_img[:4])).cpu().numpy()
+            mlflow.log_image(grid_in, f'test_rgb_{self.current_epoch}_{batch_idx}.png')
+            mlflow.log_image(grid_out, f'test_out_{self.current_epoch}_{batch_idx}.png')
         return loss
     
     
@@ -125,6 +129,7 @@ class CustomTransposedConv2d(nn.Module):
         
         # Define the hard-coded weights (example weights)
         #self.weights = nn.Parameter(torch.randn(out_channels, in_channels, kernel_size, kernel_size))
+        # TODO normalize weights here
         self.bias = nn.Parameter(torch.zeros(out_channels))
         
     def forward(self, x):

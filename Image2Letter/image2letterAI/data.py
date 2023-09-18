@@ -65,8 +65,8 @@ def get_img_transforms_train_target(img_size: int)-> v2.Compose:
                 v2.RandomInvert(0.5),
                 v2.ColorJitter(0.5, 0.5, 0.5),
                 lambda x: v2.functional.invert(x),
-                #v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 v2.Grayscale(num_output_channels=1),
+                v2.Normalize(mean=[0.445], std=[0.269]),
                 ])                                                  
 
 def get_img_transforms_test(img_size:int) -> v2.Compose:
@@ -75,51 +75,59 @@ def get_img_transforms_test(img_size:int) -> v2.Compose:
 def get_img_transforms_test_target(img_size:int)-> v2.Compose:
     return v2.Compose([v2.ToImageTensor(),
                         v2.ConvertImageDtype(torch.float32),
-                          v2.CenterCrop((img_size, img_size)),
-                          lambda x: v2.functional.invert(x),
-                            #v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                            v2.Grayscale(num_output_channels=1)])
+                        v2.CenterCrop((img_size, img_size)),
+                        lambda x: v2.functional.invert(x),
+                        v2.Grayscale(num_output_channels=1),
+                        v2.Normalize(mean=[0.445], std=[0.269]),
+                        ])
 
 class BigImagesDataModule(pl.LightningDataModule):
     # https://github.com/ray-project/ray/blob/master/python/ray/tune/examples/mnist_ptl_mini.py
     def __init__(self, 
                  imgs_dir: str,
                  img_size: int,
+                 img_size_test: int,
                  batch_size : int,
+                 num_workers: int,
                  val_ratio = 0.2,
                  test_ratio = 0.2,
                  ) -> None:
         super().__init__()
         self.imgs_dir = imgs_dir
         self.batch_size = batch_size
+        self.num_workers = num_workers
         self.val_ratio = val_ratio
         self.test_ratio = test_ratio
         self.transform_img_train = get_img_transforms_train(img_size)
         self.transform_target_train = get_img_transforms_train_target(img_size)
-        self.transform_img_test = get_img_transforms_test(img_size)
-        self.transform_target_test = get_img_transforms_test_target(img_size)
+        self.transform_img_val = get_img_transforms_test(img_size)
+        self.transform_target_val = get_img_transforms_test_target(img_size)
+        self.transform_img_test = get_img_transforms_test(img_size_test)
+        self.transform_target_test = get_img_transforms_test_target(img_size_test)
         set_seeds()
 
     def setup(self, stage: str) -> None:
         dataset_train_full = BigImagesDataset(self.imgs_dir, self.transform_img_train, self.transform_target_train)
+        datset_val_full = BigImagesDataset(self.imgs_dir, self.transform_img_val, self.transform_target_val)
         datset_test_full = BigImagesDataset(self.imgs_dir, self.transform_img_test, self.transform_target_test)
+        
 
         train_indices, val_indices, test_indices = train_val_test_split(len(dataset_train_full), self.val_ratio, self.test_ratio)
         
         if stage == "fit" or stage is None:
             self.ds_train = Subset(dataset_train_full, train_indices)
-            self.ds_val = Subset(datset_test_full, val_indices)
+            self.ds_val = Subset(datset_val_full, val_indices)
         if stage == "test" or stage is None:
             self.ds_test = Subset(datset_test_full, test_indices)
 
     def train_dataloader(self):
-        return DataLoader(self.ds_train, batch_size=self.batch_size)
+        return DataLoader(self.ds_train, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.ds_val, batch_size=self.batch_size)
+        return DataLoader(self.ds_val, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self.ds_test, batch_size=self.batch_size)
+        return DataLoader(self.ds_test, batch_size=self.batch_size, num_workers=self.num_workers)
 
     # TODO for distributed training on multiple nodes to get data
     def prepare_data(self) -> None:
