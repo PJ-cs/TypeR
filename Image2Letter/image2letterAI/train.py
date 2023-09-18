@@ -30,7 +30,7 @@ def train_typeR(config, num_gpus=0, num_workers=1):
         val_ratio = config["val_ratio"],
         test_ratio = config["test_ratio"]
     )
-    metrics = {"loss": "ptl/val_loss", "acc": "ptl/val_accuracy"}
+    metrics = {"loss": "ptl/val_loss"}
     mlflow.autolog()
     trainer = pl.Trainer(
         precision=config["precision"],
