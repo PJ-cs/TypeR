@@ -40,11 +40,34 @@ class TypeRNet(pl.LightningModule):
         self.loss = TypeRLoss(max_letter_per_pix, alpha, beta, gamma)
 
         # build model
-        self.conv1 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT).conv1
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=len(letters), kernel_size=5, stride=1, padding=2)
-        nn.init.xavier_normal_(self.conv2.weight)
+       
+        self.base_model = torchvision.models.resnet18(pretrained=True)
+        self.base_layers = list(self.base_model.children())
+
+        self.layer0 = nn.Sequential(*self.base_layers[:3]) # size=(N, 64, x.H/2, x.W/2)
+        self.layer0_1x1 = convrelu(64, 64, 1, 0)
+        self.layer1 = nn.Sequential(*self.base_layers[3:5]) # size=(N, 64, x.H/4, x.W/4)
+        self.layer1_1x1 = convrelu(64, 64, 1, 0)
+        self.layer2 = self.base_layers[5]  # size=(N, 128, x.H/8, x.W/8)
+        self.layer2_1x1 = convrelu(128, 128, 1, 0)
+        self.layer3 = self.base_layers[6]  # size=(N, 256, x.H/16, x.W/16)
+        self.layer3_1x1 = convrelu(256, 256, 1, 0)
+        self.layer4 = self.base_layers[7]  # size=(N, 512, x.H/32, x.W/32)
+        self.layer4_1x1 = convrelu(512, 512, 1, 0)
+
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.conv_up3 = convrelu(256 + 512, 512, 3, 1)
+        self.conv_up2 = convrelu(128 + 512, 256, 3, 1)
+        self.conv_up1 = convrelu(64 + 256, 256, 3, 1)
+        self.conv_up0 = convrelu(64 + 256, 128, 3, 1)
+
+        self.conv_original_size0 = convrelu(3, 64, 3, 1)
+        self.conv_original_size1 = convrelu(64, 64, 3, 1)
+        self.conv_original_size2 = convsimgmoid(64 + 128, 100, 3, 1)
+
+        ###
         transposed_convs_weights = load_transp_conv_weights(font_path, transposed_kernel_size, letters)
-        # transposed padding = 31
         self.transp_conv = CustomTransposedConv2d(transposed_convs_weights, len(letters), 1, transposed_kernel_size, transposed_stride, transposed_padding)
         self.transp_conv.requires_grad_(False)
 
@@ -55,21 +78,59 @@ class TypeRNet(pl.LightningModule):
 
         self.val_loss_list = []
 
+        # freeze backbone
+        for l in self.base_layers:
+            for param in l.parameters():
+                param.requires_grad = False
+
     def forward(self, x):
-       feat1 = torch.tanh(self.conv1(x))
-       feat2 = torch.sigmoid(self.conv2(feat1))
-       # cap of max five letters per pixel
+        x_original = self.conv_original_size0(x)
+        x_original = self.conv_original_size1(x_original)
 
-       _, indices = torch.topk(feat2, self.max_letter_per_pix, dim=1)
-       mask = torch.zeros_like(feat2)
-       mask = mask.scatter(1, indices, 1)
-       feat2_masked = feat2 * mask
-       out_img = self.transp_conv(feat2_masked)
-       out_img = torch.where(out_img < self.eps_out, torch.tensor(0.0), out_img)
-       #out_img = torch.where(out_img > 1.0, torch.tensor(1.0), out_img)
-       # TODO 
+        layer0 = self.layer0(x)
+        layer1 = self.layer1(layer0)
+        layer2 = self.layer2(layer1)
+        layer3 = self.layer3(layer2)
+        layer4 = self.layer4(layer3)
 
-       return out_img, feat2_masked
+        layer4 = self.layer4_1x1(layer4)
+        x = self.upsample(layer4)
+        layer3 = self.layer3_1x1(layer3)
+        x = torch.cat([x, layer3], dim=1)
+        x = self.conv_up3(x)
+
+        x = self.upsample(x)
+        layer2 = self.layer2_1x1(layer2)
+        x = torch.cat([x, layer2], dim=1)
+        x = self.conv_up2(x)
+
+        x = self.upsample(x)
+        layer1 = self.layer1_1x1(layer1)
+        x = torch.cat([x, layer1], dim=1)
+        x = self.conv_up1(x)
+
+        x = self.upsample(x)
+        layer0 = self.layer0_1x1(layer0)
+        x = torch.cat([x, layer0], dim=1)
+        x = self.conv_up0(x)
+
+        x = self.upsample(x)
+        x = torch.cat([x, x_original], dim=1)
+        x = self.conv_original_size2(x)
+        # feat1 = torch.tanh(self.conv1(x))
+        # feat2 = torch.sigmoid(self.conv2(feat1))
+        # cap of max five letters per pixel
+
+        _, indices = torch.topk(x, self.max_letter_per_pix, dim=1)
+        mask = torch.zeros_like(x)
+        mask = mask.scatter(1, indices, 1)
+        x_masked = x * mask
+        out_img = self.transp_conv(x_masked)
+        out_img = torch.where(out_img < self.eps_out, torch.tensor(0.0), out_img)
+        #out_img = torch.where(out_img > 1.0, torch.tensor(1.0), out_img)
+        # TODO 
+
+        return out_img, x_masked     
     
     def training_step(self, batch, batch_idx : int) -> STEP_OUTPUT:
         img_in, img_target, label = batch
@@ -137,3 +198,15 @@ class CustomTransposedConv2d(nn.Module):
         output = nn.functional.conv_transpose2d(x, self.weights, bias=self.bias,
                                                        stride=self.stride, padding=self.padding)
         return output
+    
+def convrelu(in_channels, out_channels, kernel, padding):
+  return nn.Sequential(
+    nn.Conv2d(in_channels, out_channels, kernel, padding=padding),
+    nn.ReLU(inplace=True),
+  )
+
+def convsimgmoid(in_channels, out_channels, kernel, padding):
+  return nn.Sequential(
+    nn.Conv2d(in_channels, out_channels, kernel, padding=padding),
+    nn.Sigmoid(),
+  )
