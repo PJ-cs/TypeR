@@ -121,7 +121,7 @@ class BigImagesDataModule(pl.LightningDataModule):
             self.ds_test = Subset(datset_test_full, test_indices)
 
     def train_dataloader(self):
-        return DataLoader(self.ds_train, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(self.ds_train, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
 
     def val_dataloader(self):
         return DataLoader(self.ds_val, batch_size=self.batch_size, num_workers=self.num_workers)
