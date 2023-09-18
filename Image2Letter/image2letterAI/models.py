@@ -85,9 +85,9 @@ class TypeRNet(pl.LightningModule):
         loss = self.loss.forward(key_strokes, out_img, img_target)
         self.val_loss_list.append(loss)
         self.log("val_loss", float(loss))
-        if batch_idx % 6 == 0:
-            grid_in = convert_rgb_tensor_for_plot(torchvision.utils.make_grid(img_in[:4])).cpu().numpy()
-            grid_out = convert_gray_tensor_for_plot(torchvision.utils.make_grid(out_img[:4])).cpu().numpy()
+        if batch_idx % 6 == 0:      
+            grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:4])).cpu().numpy()
+            grid_out = torchvision.utils.make_grid(convert_gray_tensor_for_plot(out_img[:4])).cpu().numpy()
             mlflow.log_image(grid_in, f'validation_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'validation_out_{self.current_epoch}_{batch_idx}.png')
 
@@ -104,8 +104,8 @@ class TypeRNet(pl.LightningModule):
         loss = self.loss.forward(key_strokes, out_img, img_target)
         self.log("test_loss", float(loss))
         if batch_idx % 6 == 0:
-            grid_in = convert_rgb_tensor_for_plot(torchvision.utils.make_grid(img_in[:4])).cpu().numpy()
-            grid_out = convert_gray_tensor_for_plot(torchvision.utils.make_grid(out_img[:4])).cpu().numpy()
+            grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:4])).cpu().numpy()
+            grid_out = torchvision.utils.make_grid(convert_gray_tensor_for_plot(out_img[:4])).cpu().numpy()
             mlflow.log_image(grid_in, f'test_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'test_out_{self.current_epoch}_{batch_idx}.png')
         return loss
