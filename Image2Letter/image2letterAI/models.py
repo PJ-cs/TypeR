@@ -125,16 +125,16 @@ class TypeRNet(pl.LightningModule):
         # feat2 = torch.sigmoid(self.conv2(feat1))
         # cap of max five letters per pixel
 
-        # _, indices = torch.topk(x, self.max_letter_per_pix, dim=1)
-        # mask = torch.zeros_like(x)
-        # mask = mask.scatter(1, indices, 1)
-        # x_masked = x * mask
-        out_img = self.transp_conv(x)
-        #out_img = torch.where(out_img < self.eps_out, torch.tensor(0.0), out_img)
-        #out_img = torch.where(out_img > 1.0, torch.tensor(1.0), out_img)
+        _, indices = torch.topk(x, self.max_letter_per_pix, dim=1)
+        mask = torch.zeros_like(x)
+        mask = mask.scatter(1, indices, 1)
+        x_masked = x * mask
+        out_img = self.transp_conv(x_masked)
+        out_img = torch.where(out_img < self.eps_out, torch.tensor(0.0), out_img)
+        out_img = torch.where(out_img > 1.0, torch.tensor(1.0), out_img)
         # TODO 
 
-        return out_img, x    
+        return out_img, x_masked 
     
     def training_step(self, batch, batch_idx : int) -> STEP_OUTPUT:
         img_in, img_target, label = batch
@@ -161,7 +161,7 @@ class TypeRNet(pl.LightningModule):
 
         if batch_idx % 10 == 0:      
             grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
-            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(torch.clip(out_img[:8], torch.tensor(0.).to(self.device), torch.tensor(1.).to(self.device))), normalize=True).permute(1,2,0).cpu().numpy()
+            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(out_img[:8]), normalize=True).permute(1,2,0).cpu().numpy()
             mlflow.log_image(grid_in, f'validation_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'validation_out_{self.current_epoch}_{batch_idx}.png')
 
@@ -179,7 +179,7 @@ class TypeRNet(pl.LightningModule):
         self.log("test_loss", float(loss))
         if batch_idx % 10 == 0:
             grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
-            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(torch.clip(out_img[:8], torch.tensor(0.).to(self.device), torch.tensor(1.).to(self.device))), normalize=True).permute(1,2,0).cpu().numpy()
+            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(out_img[:8]), normalize=True).permute(1,2,0).cpu().numpy()
             mlflow.log_image(grid_in, f'test_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'test_out_{self.current_epoch}_{batch_idx}.png')
         return loss
