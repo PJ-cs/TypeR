@@ -77,23 +77,21 @@ def load_transp_conv_weights(font_path: str, kernel_size: int, letters: list[str
 
 # TODO test this code
 class TypeRLoss(nn.Module):
-    def __init__(self, max_letter_per_pix : int, alpha = 1.0 , beta = 0.0, gamma = 0.0 ) -> None:
+    def __init__(self, max_letter_per_pix : int) -> None:
         super().__init__()
         self.mse = nn.MSELoss()
         self.max_letter_per_pix = max_letter_per_pix
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
 
-    def forward(self, key_strokes: torch.Tensor, out_img: torch.Tensor, target_img: torch.Tensor) -> torch.Tensor:
+
+    def forward(self, key_strokes: torch.Tensor, out_img: torch.Tensor, target_img: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         b, key_dims, h, w = key_strokes.shape
         mse_loss =  self.mse(out_img, target_img)
-        n_key_strokes_loss =  key_strokes.sum() / (key_strokes.numel() / key_dims )
+        n_key_strokes_loss =  key_strokes.mean() * key_dims
         # key_variety_goal = torch.zeros((b, key_dims))
         # key_variety_goal[:] = 1./key_dims / self.max_letter_per_pix * (h*w)
         # key_variety_loss =  self.mse(key_strokes.sum(dim=(2,3))-key_variety_goal) 
 
-        return self.alpha * mse_loss # + self.beta * n_key_strokes_loss + self.gamma * key_variety_loss
+        return mse_loss,  n_key_strokes_loss # + self.gamma * key_variety_loss
         
 
 def calc_receptive_field(layer_params : list[tuple[int, int, int]]):
