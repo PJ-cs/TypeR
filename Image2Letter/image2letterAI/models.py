@@ -178,8 +178,8 @@ class TypeRNet(pl.LightningModule):
     
     def configure_optimizers(self) -> Any:
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=self.lr)
-        lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=self.sched_step_size, gamma=self.sched_gamma)
-        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
+        lr_scheduler_tmp = lr_scheduler.StepLR(optimizer, step_size=self.sched_step_size, gamma=self.sched_gamma)
+        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler_tmp}
     
 
 class CustomTransposedConv2d(nn.Module):
