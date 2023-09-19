@@ -7,6 +7,7 @@ from torch import optim
 import torchvision
 import torch
 import pytorch_lightning as pl
+from torch.optim import lr_scheduler
 from utils import TypeRLoss
 import mlflow
 from utils import convert_rgb_tensor_for_plot, convert_gray_tensor_for_plot
@@ -28,6 +29,9 @@ class TypeRNet(pl.LightningModule):
         alpha = config["alpha"]
         beta = config["beta"]
         gamma = config["gamma"]
+
+        self.sched_step_size = config["sched_step_size"]
+        self.sched_gamma = config["sched_gamma"]
 
         font_path = config["font_path"]
         transposed_kernel_size = config["transposed_kernel_size"]
@@ -148,7 +152,7 @@ class TypeRNet(pl.LightningModule):
         self.log("val_loss", float(loss))
         if batch_idx % 10 == 0:      
             grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
-            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(convert_gray_tensor_for_plot(out_img[:8])), normalize=True).permute(1,2,0).cpu().numpy()
+            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(out_img[:8]), normalize=True).permute(1,2,0).cpu().numpy()
             mlflow.log_image(grid_in, f'validation_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'validation_out_{self.current_epoch}_{batch_idx}.png')
 
@@ -166,17 +170,17 @@ class TypeRNet(pl.LightningModule):
         self.log("test_loss", float(loss))
         if batch_idx % 10 == 0:
             grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
-            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(convert_gray_tensor_for_plot(out_img[:8])), normalize=True).permute(1,2,0).cpu().numpy()
+            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(out_img[:8]), normalize=True).permute(1,2,0).cpu().numpy()
             mlflow.log_image(grid_in, f'test_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'test_out_{self.current_epoch}_{batch_idx}.png')
         return loss
     
     
     def configure_optimizers(self) -> Any:
-        optimizer = optim.Adam(self.parameters(), lr=self.lr)
-        return optimizer
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=self.lr)
+        lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=self.sched_step_size, gamma=self.sched_gamma)
+        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
     
-
 
 class CustomTransposedConv2d(nn.Module):
     def __init__(self, weights, in_channels, out_channels, kernel_size, stride=1, padding=0):

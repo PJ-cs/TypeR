@@ -57,6 +57,8 @@ def tune_typeR(
     "alpha" : 1.,
     "beta" : 0.,
     "gamma" : 0.,
+    "sched_step_size" : 8,
+    "sched_gamma" : 0.1,
 
     "img_dir" : str(configFile.TRAINING_IMGS_DIR),
     "img_size" : 224,
