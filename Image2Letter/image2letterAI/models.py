@@ -157,6 +157,8 @@ class TypeRNet(pl.LightningModule):
         self.log("val_mse_loss", float(mse_loss))
         self.log("val_key_stroke_loss", float(key_stroke_loss))
 
+        self.val_loss_list.append(loss)
+
         if batch_idx % 10 == 0:      
             grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
             grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(torch.clip(out_img[:8], torch.tensor(0.).to(self.device), torch.tensor(1.).to(self.device))), normalize=True).permute(1,2,0).cpu().numpy()
