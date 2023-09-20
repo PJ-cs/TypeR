@@ -29,6 +29,7 @@ class TypeRNet(pl.LightningModule):
         self.alpha = config["alpha"]
         self.beta = config["beta"]
         self.gamma = config["gamma"]
+        self.img_size = self.config["img_size"]
 
         self.sched_step_size = config["sched_step_size"]
         self.sched_gamma = config["sched_gamma"]
@@ -139,7 +140,7 @@ class TypeRNet(pl.LightningModule):
     def training_step(self, batch, batch_idx : int) -> STEP_OUTPUT:
         img_in, img_target, label = batch
         out_img, key_strokes = self.forward(img_in)
-        mse_loss, key_stroke_loss = self.loss.forward(key_strokes, out_img, img_target)
+        mse_loss, key_stroke_loss = self.loss.forward(key_strokes, out_img[:, :, 15:self.img_size-15, 15:self.img_size-15], img_target[:, :, 15:self.img_size-15, 15:self.img_size-15])
         loss = self.alpha * mse_loss + self.beta * key_stroke_loss
         self.log("train_loss", float(loss))
         self.log("train_mse_loss", float(mse_loss))
@@ -150,8 +151,7 @@ class TypeRNet(pl.LightningModule):
         img_in, img_target, label = batch
         # TODO use label to get mse per class
         out_img, key_strokes = self.forward(img_in)
-        loss = self.loss.forward(key_strokes, out_img, img_target)
-        mse_loss, key_stroke_loss = self.loss.forward(key_strokes, out_img, img_target)
+        mse_loss, key_stroke_loss = self.loss.forward(key_strokes, out_img[:, :, 15:self.img_size-15, 15:self.img_size-15], img_target[:, :, 15:self.img_size-15, 15:self.img_size-15])
         loss = self.alpha * mse_loss + self.beta * key_stroke_loss
         self.log("val_loss", float(loss))
         self.log("val_mse_loss", float(mse_loss))
@@ -175,14 +175,21 @@ class TypeRNet(pl.LightningModule):
     def test_step(self, batch, batch_idx) -> STEP_OUTPUT | None:
         img_in, img_target, label = batch
         out_img, key_strokes = self.forward(img_in)
-        loss = self.loss.forward(key_strokes, out_img, img_target)
+        mse_loss, key_stroke_loss = self.loss.forward(key_strokes, out_img[:, :, 15:self.img_size-15, 15:self.img_size-15], img_target[:, :, 15:self.img_size-15, 15:self.img_size-15])
+        loss = self.alpha * mse_loss + self.beta * key_stroke_loss
         self.log("test_loss", float(loss))
-        if batch_idx % 10 == 0:
+        self.log("test_mse_loss", float(mse_loss))
+        self.log("test_key_stroke_loss", float(key_stroke_loss))
+
+        self.val_loss_list.append(loss)
+
+        if batch_idx % 10 == 0:      
             grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
             grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(out_img[:8]), normalize=True).permute(1,2,0).cpu().numpy()
             mlflow.log_image(grid_in, f'test_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'test_out_{self.current_epoch}_{batch_idx}.png')
-        return loss
+
+        return {"test_loss" : loss}
     
     
     def configure_optimizers(self) -> Any:
