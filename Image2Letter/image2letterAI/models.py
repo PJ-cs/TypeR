@@ -131,7 +131,7 @@ class TypeRNet(pl.LightningModule):
         x_masked = x * mask
         out_img = self.transp_conv(x_masked)
         out_img = torch.where(out_img < self.eps_out, torch.tensor(0.0), out_img)
-        out_img = torch.where(out_img > 1.0, torch.tensor(1.0), out_img)
+        #out_img = torch.where(out_img > 1.0, torch.tensor(1.0), out_img)
         # TODO 
 
         return out_img, x_masked 
