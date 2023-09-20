@@ -161,7 +161,7 @@ class TypeRNet(pl.LightningModule):
 
         if batch_idx % 10 == 0:      
             grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
-            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(out_img[:8]), normalize=True).permute(1,2,0).cpu().numpy()
+            grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(out_img[:8, :, 15:self.img_size-15, 15:self.img_size-15]), normalize=True).permute(1,2,0).cpu().numpy()
             mlflow.log_image(grid_in, f'validation_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'validation_out_{self.current_epoch}_{batch_idx}.png')
 
