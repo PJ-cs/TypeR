@@ -86,9 +86,9 @@ class TypeRNet(pl.LightningModule):
         self.val_loss_list = []
 
         # freeze backbone
-        for l in self.base_layers:
-            for param in l.parameters():
-                param.requires_grad = False
+        # for l in self.base_layers:
+        #     for param in l.parameters():
+        #         param.requires_grad = False
 
     def forward(self, x):
         x_original = self.conv_original_size0(x)
