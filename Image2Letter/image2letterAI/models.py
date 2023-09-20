@@ -128,18 +128,18 @@ class TypeRNet(pl.LightningModule):
         # feat2 = torch.sigmoid(self.conv2(feat1))
         # cap of max five letters per pixel
 
-        # _, indices = torch.topk(x, self.max_letter_per_pix, dim=1)
-        # mask = torch.zeros_like(x)
-        # mask = mask.scatter(1, indices, 1)
-        # x_masked = x * mask
-        # out_img = self.transp_conv(x_masked)
-        out_img = self.transp_conv(x)
+        _, indices = torch.topk(x, self.max_letter_per_pix, dim=1)
+        mask = torch.zeros_like(x)
+        mask = mask.scatter(1, indices, 1)
+        x_masked = x * mask
+        out_img = self.transp_conv(x_masked)
+        #out_img = self.transp_conv(x)
         #out_img = torch.where(out_img < self.eps_out, torch.tensor(0.0), out_img)
         #out_img = torch.where(out_img > 1.0, torch.tensor(1.0), out_img)
         # TODO 
 
-        # return out_img, x_masked 
-        return out_img, x
+        return out_img, x_masked 
+        #return out_img, x
     
     def training_step(self, batch, batch_idx : int) -> STEP_OUTPUT:
         img_in, img_target, label = batch
