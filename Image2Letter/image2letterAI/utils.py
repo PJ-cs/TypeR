@@ -73,7 +73,38 @@ def load_transp_conv_weights(font_path: str, kernel_size: int, letters: list[str
     
     return torch.stack(convolutions).unsqueeze(1)
 
+def get_rel_area_letters(font_path: str, letters: list[str]) -> dict[str, float]:
+    kernel_size = 65
+    font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size*.88))
 
+    transform = transforms.Compose([
+        transforms.PILToTensor()
+    ])
+
+    all_letters_text = "".join(letters)
+    left, top, right, bottom = font.getbbox(all_letters_text)
+    y = (kernel_size // 2) -  ((bottom-top)//2)-top
+
+    letter_areas: dict[str, float] = {}
+
+    for letter in letters:
+        im = Image.new("L", (kernel_size, kernel_size), 0)
+        draw = ImageDraw.Draw(im)
+        left, top, right, bottom = font.getbbox(letter)
+        x = (kernel_size // 2) -  ((right-left)//2)
+        
+        draw.multiline_text((x,y), letter, 255, font=font)
+
+        letter_tensor = transform(im).float().squeeze(0) / 255.
+
+        letter_areas[letter] = float(letter_tensor.sum())
+
+    # norm areas to minimal area of ' ` ' symbol
+    min_area : float = min(letter_areas.values())
+    for letter, area in letter_areas.items():
+        letter_areas[letter] = area / min_area
+    
+    return letter_areas
 
 # TODO test this code
 class TypeRLoss(nn.Module):
