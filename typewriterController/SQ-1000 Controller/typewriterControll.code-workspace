@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "SQ-1000 controller",
+			"path": "../SQ-1000 controller"
+		},
+		{
+			"name": "SQ-1000 Controller",
+			"path": "."
+		}
+	],
+	"settings": {}
+}

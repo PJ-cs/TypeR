@@ -1,0 +1,23 @@
+tasks typewrite:
+- find out polarity / wires of stepper motors => youtube video
+- test stepper motors with arduino + cnc shield -> test micro stepping
+- find out how to trigger hammer with arduino
+- find out how starting sequence works
+	- home position via stop-switch => connect to cnc shield
+	- home position of wheel via clutch? turning the motor two full rotations?
+- control complete typewriter:
+	- spacing
+	- new line
+	- type selection 
+	- hammer
+- how to read inputs from the typewriter keyboard?
+	- pass through arduino
+	- connect ribbons to arduino digital input and read signal
+	- connect / replace with usb keyboard, pass signal through to arduino via
+		raspberry pi
+		
+		
+line feed motor 6-wire stepper motor 
+	Unipolar or Hybrid(Unipolar + Bipolar)
+	6 wires:
+	4 coil end wires
