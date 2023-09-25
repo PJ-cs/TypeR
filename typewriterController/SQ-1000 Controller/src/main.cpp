@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <AccelStepper.h>
-
+#include "CustomStepper.h"
 
 // Stepper State definitions
 #define RUNNING 1
@@ -61,11 +61,11 @@
 #define STEPS_PER_PIXEL_Y 17
 
 // daisy wheel
-#define Z_PIN_4 13 //Spindle direction
+#define Z_PIN_4 A3 //Cool Enable
 #define Z_PIN_3 7 // dirz
 #define Z_PIN_2 4 // stepz
 #define Z_PIN_1 10 //y+
-#define MAX_SPEED_Z 300
+#define MAX_SPEED_Z 200
 #define HOMING_SPEED_Z 700
 #define NUMBER_LETTERS 100
 #define STEP_SIZE_Z  1
@@ -101,7 +101,7 @@ AccelStepper stepperY(AccelStepper::DRIVER, STEP_PIN_Y, DIR_PIN_Y);
 int stateZ;
 int currentZGoal;
 int nextZGoal;
-AccelStepper stepperZ(AccelStepper::FULL4WIRE, Z_PIN_1, Z_PIN_2, Z_PIN_3, Z_PIN_4);
+CustomStepper stepperZ(AccelStepper::FULL4WIRE, Z_PIN_1, Z_PIN_2, Z_PIN_3, Z_PIN_4);
 
 int stateHam;
 unsigned long startMillis;
@@ -224,7 +224,7 @@ void runStateMachines(){
 
   if(allStepperAtPosition()){ //trigger hammer
     //switch of stepper motor for the duration of hammer
-    delay(100);
+    delay(50); // TODO: shorter
     digitalWrite(STEPPER_ENABLE_PIN, HIGH);
     switch(stateHam){
       case WAITING:
@@ -282,11 +282,8 @@ void startCommand(){
     // }
    
     stepperZ.moveTo(currentZGoal);
-     if(abs(currentZGoal- stepperZ.currentPosition()) < MAX_STEPS_Z){
-      stepperZ.setSpeed(MAX_SPEED_Z);
-    }else{
-      stepperZ.setSpeed(MAX_STEPS_Z);
-    }
+    stepperZ.setSpeed(MAX_STEPS_Z);
+    
     stateZ = RUNNING;
 
     newGoalsSet = false;
@@ -439,12 +436,12 @@ boolean doStartUpOnce(){
       case RUN_HOME:
         //Serial.write("Z: RUN_HOME\n");
         if(stepperZ.distanceToGo() == 0){
-          stepperZ.setCurrentPosition(0);
           startUp = false;
           digitalWrite(STEPPER_ENABLE_PIN, HIGH);
           stateZ = WAITING;
           stateX = WAITING;
           delay(1000);
+          stepperZ.setCurrentPosition(-2);
           break;
         }
         stepperZ.runSpeedToPosition();
