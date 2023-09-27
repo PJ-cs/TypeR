@@ -80,6 +80,7 @@
 
 #define HAMMER_PIN 11
 #define NUM_O_HAM_LEVEL 5
+#define HAM_FACTOR 1.0
 //minimal time to wait until next hammer hit
 #define HAM_COOL_MS 30
 //minimal activiation time of hammer pin to hit paper
@@ -349,7 +350,9 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
           *ZGoal = min(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1) * STEP_SIZE_Z;
         }break;
         case 'T':{
-          uint8_t hamLevel = min(max(0, atoi(&commandTmp[1]))-1, NUM_O_HAM_LEVEL-1);
+          float hamLevel = min(max(0., atof(&commandTmp[1])),1.);
+          float letterArea = area_letters[*ZGoal];
+          int hammerPts = letterArea * 150 * hamLevel * HAM_FACTOR;
           hamGoal[0] = hamLevels[hamLevel][0];
           hamGoal[1] = hamLevels[hamLevel][1];
         }break;

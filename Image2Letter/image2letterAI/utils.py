@@ -73,7 +73,7 @@ def load_transp_conv_weights(font_path: str, kernel_size: int, letters: list[str
     
     return torch.stack(convolutions).unsqueeze(1)
 
-def get_rel_area_letters(font_path: str, letters: list[str]) -> dict[str, float]:
+def get_rel_area_letters(font_path: str, letters: list[str]) -> list[float]:
     kernel_size = 65
     font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size*.88))
 
@@ -85,7 +85,7 @@ def get_rel_area_letters(font_path: str, letters: list[str]) -> dict[str, float]
     left, top, right, bottom = font.getbbox(all_letters_text)
     y = (kernel_size // 2) -  ((bottom-top)//2)-top
 
-    letter_areas: dict[str, float] = {}
+    letter_areas: list[float] = []
 
     for letter in letters:
         im = Image.new("L", (kernel_size, kernel_size), 0)
@@ -97,12 +97,12 @@ def get_rel_area_letters(font_path: str, letters: list[str]) -> dict[str, float]
 
         letter_tensor = transform(im).float().squeeze(0) / 255.
 
-        letter_areas[letter] = float(letter_tensor.sum())
+        letter_areas.append(float(letter_tensor.sum()))
 
     # norm areas to minimal area of ' ` ' symbol
-    min_area : float = min(letter_areas.values())
-    for letter, area in letter_areas.items():
-        letter_areas[letter] = area / min_area
+    min_area : float = min(letter_areas)
+    for index, area in enumerate(letter_areas):
+        letter_areas[index] = area / min_area
     
     return letter_areas
 
