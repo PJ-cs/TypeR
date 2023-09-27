@@ -79,8 +79,10 @@
 #define STEPPER_ENABLE_PIN 8
 
 #define HAMMER_PIN 11
-#define NUM_O_HAM_LEVEL 5
+#define NUM_O_HAM_LEVEL 3
 #define HAM_FACTOR 1.0
+#define HAM_RANGE 55
+
 //minimal time to wait until next hammer hit
 #define HAM_COOL_MS 30
 //minimal activiation time of hammer pin to hit paper
@@ -106,11 +108,9 @@ CustomStepper stepperZ(AccelStepper::FULL4WIRE, Z_PIN_1, Z_PIN_2, Z_PIN_3, Z_PIN
 
 int stateHam;
 unsigned long startMillis;
-// contains the tupel (#hits, strength)
+// contains the tupel (# full strength hits, strength of last partial hit)
 uint8_t currentHamGoal[2];
 uint8_t nextHamGoal[2];
-// five pairs of (#hits, strength[200-250])
-const uint8_t hamLevels[5][2] = {{1, 200}, {1, 230}, {1, 250}, {2, 250}, {3, 250}};
 // order: ".", ">", "‰", "<", "|", "'", "³", "_", "Y" ..., order 0,1,2,3,4 ...
 const float area_letters[100] = {1.61, 4.41, 8.74, 4.4, 5.24, 1.47, 3.58, 3.2, 6.46, 5.91, 
                                   4.79, 7.82, 8.86, 6.53, 8.95, 8.85, 7.44, 9.08, 8.59, 7.77, 
@@ -239,11 +239,19 @@ void runStateMachines(){
     digitalWrite(STEPPER_ENABLE_PIN, HIGH);
     switch(stateHam){
       case WAITING:
+        // full strength hit
         if(currentHamGoal[0] > 0){
           stateHam = RUNNING;
-          analogWrite(HAMMER_PIN, currentHamGoal[1]);
+          analogWrite(HAMMER_PIN, 255);
           startMillis = millis();
           currentHamGoal[0]--;
+        }
+        // partial hit
+        else if (currentHamGoal[1] > 0){
+          stateHam = RUNNING;
+          analogWrite(HAMMER_PIN, currentHamGoal[1]+(255-HAM_RANGE));
+          startMillis = millis();
+          currentHamGoal[1] = 0;
         }
         else{
           stateHam = WAITING;
@@ -352,9 +360,9 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
         case 'T':{
           float hamLevel = min(max(0., atof(&commandTmp[1])),1.);
           float letterArea = area_letters[*ZGoal];
-          int hammerPts = letterArea * 150 * hamLevel * HAM_FACTOR;
-          hamGoal[0] = hamLevels[hamLevel][0];
-          hamGoal[1] = hamLevels[hamLevel][1];
+          unsigned hammerPts = letterArea * HAM_RANGE * NUM_O_HAM_LEVEL * hamLevel * HAM_FACTOR;
+          hamGoal[0] = hammerPts / HAM_RANGE;
+          hamGoal[1] = hammerPts % HAM_RANGE;
         }break;
       }
       commandTmp = strtok(NULL, " ");

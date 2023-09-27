@@ -12,8 +12,8 @@
             "6", "7", "8", "9", "´", "+", "µ"
         ],
         "font": "Courier 10 Pitch Regular",
-        "pixelPerLetterHoriz": 18,
-        "pixelPerLetterVert": 25,
+        "pixelPerLetterHoriz": 20,
+        "pixelPerLetterVert": 40,
         "resolutionHoriz": 1750,
         "resolutionVert": 2460,
         "boldLevels": 5

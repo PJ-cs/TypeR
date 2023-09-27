@@ -28,8 +28,8 @@ LETTER_LIST: list[str] = [
 LETTER_DICT: dict[str, int] = {letter: i for i, letter in enumerate(LETTER_LIST)}
 
 arduino: serial.Serial = find_arduino(SERIAL_NUMBER)
-def write_letter(x: int, y: int, letter: int, thickness: int) -> str:
-    command : str = f"<X{x} Y{y} L{letter} T{thickness}>"
+def write_letter(x: int, y: int, letter: int, thickness: float) -> bytes:
+    command : str = f"<X{x} Y{y} L{letter} T{thickness:.2f}>"
     arduino.write(bytes(command, 'utf-8'))
     return arduino.read()
 
@@ -51,7 +51,7 @@ def handleArduinoReturn(response_code: str):
         raise Exception(f"Encountered unexpected arduino response: '{response_code}'")
 
 
-def write_text(text: list[str], thickness: int):
+def write_text(text: list[str], thickness: float):
     #print("writing text: ", text)
     running_horizontal = 0
     running_vertical = 0
@@ -81,13 +81,22 @@ def write_letter_sample():
     for letter in LETTER_LIST:
         print_string.append(letter)
         print_string.append(' ')
-    write_text(print_string, 5)
+    write_text(print_string, 1.0)
+
+def write_thickness_test():
+    for index in range (0, 100):
+        for x_pos in range(0, HORIZONTAL_LIMIT, HORIZONTAL_PIXEL_PER_LETTER):
+            thickness = x_pos / HORIZONTAL_LIMIT
+            write_letter(x_pos, index * VERTICAL_PIXEL_PER_LETTER, index, thickness)
 
 time.sleep(2)
 # write_letter_sample()
 # write_text([".", "*", ".","*", ".","*", ".","*", "."], 1)
 
-write_text(list("Guten Morgen, Maria!"), 3)
+#write_text(list("Guten Morgen, Maria!"), 0.1)
+
 # for i in range(0, 10):
 #     for j in range(0, 10):
 #         write_letter(i*10, j*10, 0, 1)
+
+write_thickness_test()
