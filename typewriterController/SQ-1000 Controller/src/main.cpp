@@ -81,7 +81,7 @@
 #define HAMMER_PIN 11
 #define NUM_O_HAM_LEVEL 3
 #define HAM_FACTOR 1.0
-#define HAM_RANGE 55
+#define HAM_RANGE 100
 
 //minimal time to wait until next hammer hit
 #define HAM_COOL_MS 30
