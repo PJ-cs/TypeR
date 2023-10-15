@@ -38,6 +38,8 @@ class TypeRNet(pl.LightningModule):
         transposed_kernel_size = config["transposed_kernel_size"]
         transposed_stride = config["transposed_stride"]
         transposed_padding = config["transposed_padding"]
+        keystrokes_mean = config["keystrokes_mean"]
+        keystrokes_std = config["keystrokes_std"]
         max_letter_per_pix = config["max_letter_per_pix"]
         letters = config["letters"]
         eps_out = config["eps_out"]
@@ -70,6 +72,9 @@ class TypeRNet(pl.LightningModule):
         self.conv_original_size0 = convrelu(3, 64, 3, 1)
         self.conv_original_size1 = convrelu(64, 64, 3, 1)
         self.conv_original_size2 = convsimgmoid(64 + 128, 100, 3, 1)
+
+        ### custom init weights for last conv, are key strokes
+        nn.init.trunc_normal_(self.conv_original_size2, keystrokes_mean, keystrokes_std, 0, 1.)
 
         ###
         transposed_convs_weights = load_transp_conv_weights(font_path, transposed_kernel_size, letters)

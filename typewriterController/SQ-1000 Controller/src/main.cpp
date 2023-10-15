@@ -32,14 +32,14 @@
 #define ACCEL_A 10000
 //distance to move to have fresh ink ribbon
 //does not have goals, moves always same amount of steps
-#define INCR_SIZE_A -5
+#define INCR_SIZE_A (-5*16)
 // pin for ribbon sensor, triggers if ribbon is empty
 #define LIMIT_A_AXIS_PIN -1
 
 // carriage, horizontal movement
 #define DIR_PIN_X 5
 #define STEP_PIN_X 2
-#define MAX_SPEED_X 1000.0
+#define MAX_SPEED_X 1500.0
 #define HOMING_STEPS_X -100000
 // how many steps to the right of stop
 // switch to take, where new home pos
@@ -82,7 +82,8 @@
 #define NUM_O_HAM_LEVEL 3
 #define HAM_FACTOR 1.0
 #define HAM_RANGE 164
-#define MIN_HAM_STR (155+2*9) // for some letters, six instead of 9
+#define MAX_HAM_STR 230   // 0- 255, limit strength of hammer this is ca. 10.4 V
+#define MIN_HAM_STR (155+2*9-6) // for some letters, six instead of 9
 
 //minimal time to wait until next hammer hit
 #define HAM_COOL_MS 30
@@ -243,7 +244,7 @@ void runStateMachines(){
         // full strength hit
         if(currentHamGoal[0] > 0){
           stateHam = RUNNING;
-          analogWrite(HAMMER_PIN, 255);
+          analogWrite(HAMMER_PIN, MAX_HAM_STR);
           startMillis = millis();
           currentHamGoal[0]--;
         }
@@ -367,16 +368,18 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
           int hamLevel = min(max(0, atoi(&commandTmp[1])),255);
           float hamLevelNorm = hamLevel / 255.;
           // float letterArea = area_letters[*ZGoal];
-          unsigned hammerPts = HAM_RANGE * hamLevelNorm;
-          if(*ZGoal == 97 ||
-              *ZGoal == 86 ||
-              *ZGoal == 49 ||
-              *ZGoal == 5 ||
-              *ZGoal == 0){
-            hammerPts -= 6;
-            }
-          hamGoal[0] = hammerPts / (255-MIN_HAM_STR);
-          hamGoal[1] = hammerPts % (255-MIN_HAM_STR);
+          unsigned hammerPts = (MAX_HAM_STR-MIN_HAM_STR) * hamLevelNorm ;
+          float areaFac =  area_letters[*ZGoal] / 4. ;
+          hammerPts =  areaFac > 1. ?  hammerPts * areaFac : hammerPts;
+          if((*ZGoal != 97 ||
+              *ZGoal != 86 ||
+              *ZGoal != 49 ||
+              *ZGoal != 5 ||
+              *ZGoal != 0) && hammerPts > 0){
+            hammerPts += 6;
+          }          
+          hamGoal[0] =  0; //hammerPts / (MAX_HAM_STR-MIN_HAM_STR);
+          hamGoal[1] = hammerPts;// % (MAX_HAM_STR-MIN_HAM_STR);
         }break;
       }
       commandTmp = strtok(NULL, " ");

@@ -28,8 +28,8 @@ LETTER_LIST: list[str] = [
 LETTER_DICT: dict[str, int] = {letter: i for i, letter in enumerate(LETTER_LIST)}
 
 arduino: serial.Serial = find_arduino(SERIAL_NUMBER)
-def write_letter(x: int, y: int, letter: int, thickness: float) -> bytes:
-    command : str = f"<X{x} Y{y} L{letter} T{thickness:.2f}>"
+def write_letter(x: int, y: int, letter: int, thickness: int) -> bytes:
+    command : str = f"<X{x} Y{y} L{letter} T{thickness}>"
     arduino.write(bytes(command, 'utf-8'))
     return arduino.read()
 
@@ -85,9 +85,10 @@ def write_letter_sample():
 
 def write_thickness_test():
     for index in range (0, 100):
-        for x_pos in range(0, HORIZONTAL_LIMIT, HORIZONTAL_PIXEL_PER_LETTER):
-            thickness = x_pos / HORIZONTAL_LIMIT
-            write_letter(x_pos, index * VERTICAL_PIXEL_PER_LETTER, index, thickness)
+        for x_pos in range(0, HORIZONTAL_PIXEL_PER_LETTER*30, HORIZONTAL_PIXEL_PER_LETTER):
+            thickness = x_pos // HORIZONTAL_PIXEL_PER_LETTER * 4
+            write_letter(x_pos + index // 33 * HORIZONTAL_PIXEL_PER_LETTER*30, index % 33* VERTICAL_PIXEL_PER_LETTER , index, thickness)
+
 
 time.sleep(2)
 # write_letter_sample()

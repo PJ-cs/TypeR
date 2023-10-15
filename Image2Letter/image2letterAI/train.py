@@ -73,6 +73,8 @@ def tune_typeR(
     "transposed_kernel_size" : 64,
     "transposed_stride": round(64*0.035),
     "transposed_padding": 31,
+    "keystrokes_mean": 0.05,
+    "keystrokes_std": 0.2,
     "max_letter_per_pix": 5,
     "letters": configFile.TYPEWRITER_CONFIG["letterList"],
     "eps_out": 1./100,
