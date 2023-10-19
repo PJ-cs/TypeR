@@ -29,12 +29,12 @@
 #define DIR_PIN_A 13 
 #define STEP_PIN_A 12
 #define MAX_SPEED_A 1000.0
-#define ACCEL_A 10000
+#define ACCEL_A 100
 //distance to move to have fresh ink ribbon
 //does not have goals, moves always same amount of steps
 #define INCR_SIZE_A (-5*16)
 // pin for ribbon sensor, triggers if ribbon is empty
-#define LIMIT_A_AXIS_PIN -1
+#define LIMIT_A_AXIS_PIN A1
 
 // carriage, horizontal movement
 #define DIR_PIN_X 5
@@ -139,6 +139,7 @@ void startCommand();
 void recvCommand();
 void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *HamGoal);
 void confirmCommandRecieved();
+void sentRibbonError();
 bool allAreWaiting();
 bool allStepperAtPosition();
 boolean doStartUpOnce();
@@ -150,8 +151,7 @@ void setup() {
   analogWrite(HAMMER_PIN, 0);
 
   pinMode(LIMIT_X_AXIS_PIN, INPUT_PULLUP);
-  pinMode(LIMIT_A_AXIS_PIN, INPUT);
-
+  pinMode(LIMIT_A_AXIS_PIN, INPUT_PULLUP);
   
   stepperA.setMaxSpeed(MAX_SPEED_A);
   stepperA.setAcceleration(ACCEL_A);
@@ -393,6 +393,10 @@ void confirmCommandRecieved() {
   Serial.print("A");
 }
 
+void sentRibbonError() {
+  Serial.print("R");
+}
+
 bool allAreWaiting() {
   return stateA == WAITING && stateX == WAITING && stateY == WAITING && stateZ == WAITING &&
   stateHam == WAITING;
@@ -404,6 +408,33 @@ bool allStepperAtPosition(){
 boolean doStartUpOnce(){
   static boolean startUp = true;
   if(startUp){
+    switch(stateA){ //horizontal movement
+      case WAITING:
+        //Serial.write("X: WAITING\n");
+        stepperA.move(INCR_SIZE_A*10);
+        stateA = RUNNING;
+        break;
+      case RUNNING:
+        //Serial.write("X: RUNNING\n");
+        if(stepperA.distanceToGo() == 0){
+          //Serial.println("X limit switch triggerd");
+          stateA = AT_ENDSTOP;
+          stepperA.setCurrentPosition(0);
+          break;
+        }
+        Serial.println(!digitalRead(LIMIT_A_AXIS_PIN));     
+        stepperA.run();
+        break;
+      case AT_ENDSTOP:
+        //Serial.write("X: AT_ENDSTOP\n");
+        delay(3000);
+        stateA = WAITING;
+        break;
+      
+    }
+
+
+
     // move daisy wheel and horizontal movement to home position
     switch(stateX){ //horizontal movement
       case WAITING:
