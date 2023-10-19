@@ -13,6 +13,7 @@
 #define AT_ENDSTOP 8
 #define AT_ENDSTOP1 9
 #define AT_ENDSTOP2 10
+#define RIBBON_ERROR 11
 
 
 //TODO make sure jumpers are set
@@ -32,7 +33,7 @@
 #define ACCEL_A 10000
 //distance to move to have fresh ink ribbon
 //does not have goals, moves always same amount of steps
-#define INCR_SIZE_A (-5*16)
+#define INCR_SIZE_A (-5*5)
 // pin for ribbon sensor, triggers if ribbon is empty
 #define LIMIT_A_AXIS_PIN -1
 
@@ -139,6 +140,7 @@ void startCommand();
 void recvCommand();
 void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *HamGoal);
 void confirmCommandRecieved();
+void sentRibbonError();
 bool allAreWaiting();
 bool allStepperAtPosition();
 boolean doStartUpOnce();
@@ -186,17 +188,17 @@ void loop() {
 
   if (!startUpRunning){
     if(allAreWaiting()){
-        recvCommand();
-        processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
-        startCommand();
-      }
+      recvCommand();
+      processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
+      startCommand();
+    }
       // else if(allAtPosition()){
       //   recvCommand();
       //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
 
       // }
 
-      runStateMachines();
+    runStateMachines();
   }
   
 }
@@ -204,11 +206,28 @@ void loop() {
 void runStateMachines(){
   switch(stateA){ // TODO implement stop switch for ribbon sensor
     case RUNNING:
+      if(!digitalRead(LIMIT_A_AXIS_PIN)){
+        stateA = AT_ENDSTOP;
+        break;
+      }
+      if(stepperA.distanceToGo() == 0){
+        stateA = RIBBON_ERROR;
+        sentRibbonError();
+        break;
+      }      
+      stepperA.run();
+      break;
+    case AT_ENDSTOP:
       if(stepperA.distanceToGo() == 0){
         stateA = AT_POS;
         break;
       }      
       stepperA.run();
+      break;
+    case RIBBON_ERROR:
+      if(Serial.read() == 'C'){
+        stateA = AT_POS;
+      }
   }
   switch(stateX){
     case RUNNING:
@@ -275,7 +294,7 @@ void runStateMachines(){
         if(millis() - startMillis >= HAM_COOL_MS){
           stateHam = WAITING;
           if(currentHamGoal[0] > 0 || currentHamGoal[1] > 0){
-              // move ink ribbon
+              // TODO remove? move ink ribbon
             stateA = RUNNING;
             stepperA.move(INCR_SIZE_A);
           }
@@ -391,6 +410,10 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
 
 void confirmCommandRecieved() {
   Serial.print("A");
+}
+
+void sentRibbonError() {
+  Serial.print("R");
 }
 
 bool allAreWaiting() {
