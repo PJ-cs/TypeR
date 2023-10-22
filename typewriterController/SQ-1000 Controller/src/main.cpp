@@ -255,6 +255,7 @@ void runStateMachines(){
     //switch of stepper motor for the duration of hammer
     delay(50); // TODO: shorter
     digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+    stepperZ.disableOutputs();
     switch(stateHam){
       case WAITING:
         if (activeHamGoal > 0){
@@ -297,6 +298,7 @@ void runStateMachines(){
 void startCommand(){
   if(newGoalsSet){
     digitalWrite(STEPPER_ENABLE_PIN, LOW);
+    stepperZ.enableOutputs();
     stepperA.move(INCR_SIZE_A);
     stateA = RUNNING;
     
@@ -499,6 +501,7 @@ boolean doStartUpOnce(){
         if(stepperZ.distanceToGo() == 0){
           startUp = false;
           digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+          stepperZ.disableOutputs();
           stateZ = WAITING;
           stateX = WAITING;
           delay(1000);

@@ -128,7 +128,7 @@ arduino: serial.Serial = find_arduino(SERIAL_NUMBER)
 def write_letter(x: int, y: int, letter: int, thickness: int) -> bytes:
     command: str = f"<X{int(x)} Y{int(y)} L{int(letter)} T{int(thickness)}>"
     arduino.write(bytes(command, "utf-8"))
-    return arduino.readline()
+    handleArduinoReturn(arduino.readline())
 
 
 # TODO this is wrong, there can be multiple letters per pixel, up to five channels
@@ -141,11 +141,12 @@ def write_img(img: np.ndarray):
             handleArduinoReturn(response_code)
 
 
-def handleArduinoReturn(response_code: str):
-    if response_code == bytes("R", "UTF-8"):
+def handleArduinoReturn(response_code: bytes):
+    response_str = response_code.decode("utf-8")
+    if response_str.startswith("R"):
         # TODO failure routine, to continue here when restarted
         raise IOError("The typewriter ribbon is empty")
-    elif response_code != bytes("A", "UTF-8"):
+    elif not response_str.startswith("A"):
         raise Exception(f"Encountered unexpected arduino response: '{response_code}'")
 
 
@@ -210,12 +211,12 @@ def write_accuracy_test():
             letter = random.randint(0, 99)
             thickness = random.randint(10, 255)
             print(f"letter: {LETTER_LIST[letter]} letter ind: {letter} thickness: {thickness}")
-            print(write_letter(
+            write_letter(
                 offset_horizontal + pos_abs,
                 pos_abs,
                 letter,
                 thickness,
-            )) 
+            )
 
 
 time.sleep(2)
