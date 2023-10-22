@@ -40,7 +40,7 @@
 // carriage, horizontal movement
 #define DIR_PIN_X 5
 #define STEP_PIN_X 2
-#define MAX_SPEED_X 2000.0
+#define MAX_SPEED_X 1500.0
 #define HOMING_STEPS_X -100000
 // how many steps to the right of stop
 // switch to take, where new home pos
