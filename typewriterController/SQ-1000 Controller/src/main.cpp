@@ -35,7 +35,7 @@
 //does not have goals, moves always same amount of steps
 #define INCR_SIZE_A (-5*5)
 // pin for ribbon sensor, triggers if ribbon is empty
-#define LIMIT_A_AXIS_PIN -1
+#define LIMIT_A_AXIS_PIN A1
 
 // carriage, horizontal movement
 #define DIR_PIN_X 5
