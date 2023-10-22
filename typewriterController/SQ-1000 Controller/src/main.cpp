@@ -66,7 +66,7 @@
 #define Z_PIN_3 7 // dirz
 #define Z_PIN_2 4 // stepz
 #define Z_PIN_1 10 //y+
-#define MAX_SPEED_Z 200
+#define MAX_SPEED_Z 300
 #define HOMING_SPEED_Z 700
 #define NUMBER_LETTERS 100
 #define STEP_SIZE_Z  1
@@ -82,9 +82,8 @@
 #define HAMMER_PIN 11
 #define NUM_O_HAM_LEVEL 3
 #define HAM_FACTOR 1.0
-#define HAM_RANGE 164
 #define MAX_HAM_STR 230   // 0- 255, limit strength of hammer this is ca. 10.4 V
-#define MIN_HAM_STR (155+2*9-6) // for some letters, six instead of 9
+#define MIN_HAM_STR 167 // for some letters, six instead of 9
 
 //minimal time to wait until next hammer hit
 #define HAM_COOL_MS 30
@@ -96,24 +95,21 @@ AccelStepper stepperA(AccelStepper::DRIVER, STEP_PIN_A, DIR_PIN_A);
 
 int stateX;
 int currentXGoal;
-int nextXGoal;
 AccelStepper stepperX(AccelStepper::DRIVER, STEP_PIN_X, DIR_PIN_X);
 
 int stateY;
 int currentYGoal;
-int nextYGoal;
 AccelStepper stepperY(AccelStepper::DRIVER, STEP_PIN_Y, DIR_PIN_Y);
 
 int stateZ;
-int currentZGoal;
-int nextZGoal;
+uint8_t currentZGoal;
 CustomStepper stepperZ(AccelStepper::FULL4WIRE, Z_PIN_1, Z_PIN_2, Z_PIN_3, Z_PIN_4);
 
 int stateHam;
 unsigned long startMillis;
 // contains the tupel (# full strength hits, strength of last partial hit)
-uint8_t currentHamGoal[2];
-uint8_t nextHamGoal[2];
+uint8_t currentHamGoal;
+uint8_t activeHamGoal;
 // order: ".", ">", "‰", "<", "|", "'", "³", "_", "Y" ..., order 0,1,2,3,4 ...
 const float area_letters[100] = {1.61, 4.41, 8.74, 4.4, 5.24, 1.47, 3.58, 3.2, 6.46, 5.91, 
                                   4.79, 7.82, 8.86, 6.53, 8.95, 8.85, 7.44, 9.08, 8.59, 7.77, 
@@ -138,7 +134,7 @@ boolean startUpRunning = false;
 void runStateMachines();
 void startCommand();
 void recvCommand();
-void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *HamGoal);
+void processNewCommand(int *XGoal, int *YGoal, uint8_t *ZGoal, uint8_t *HamGoal);
 void confirmCommandRecieved();
 void sentRibbonError();
 bool allAreWaiting();
@@ -189,16 +185,17 @@ void loop() {
   if (!startUpRunning){
     if(allAreWaiting()){
       recvCommand();
-      processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, currentHamGoal); 
+      processNewCommand(&currentXGoal, &currentYGoal, &currentZGoal, &currentHamGoal); 
       startCommand();
-    }
+    } 
+    runStateMachines();
+    
       // else if(allAtPosition()){
       //   recvCommand();
       //   processNewCommand(&nextXGoal, &nextXGoal, &nextYGoal, &nextHamGoal);
 
       // }
 
-    runStateMachines();
   }
   
 }
@@ -260,19 +257,12 @@ void runStateMachines(){
     digitalWrite(STEPPER_ENABLE_PIN, HIGH);
     switch(stateHam){
       case WAITING:
-        // full strength hit
-        if(currentHamGoal[0] > 0){
+        if (activeHamGoal > 0){
           stateHam = RUNNING;
-          analogWrite(HAMMER_PIN, MAX_HAM_STR);
+          analogWrite(HAMMER_PIN, MIN_HAM_STR + activeHamGoal);
           startMillis = millis();
-          currentHamGoal[0]--;
-        }
-        // partial hit
-        else if (currentHamGoal[1] > 0){
-          stateHam = RUNNING;
-          analogWrite(HAMMER_PIN, MIN_HAM_STR + currentHamGoal[1]);
-          startMillis = millis();
-          currentHamGoal[1] = 0;
+          // Serial.print(currentZGoal);
+          // Serial.println(" letter hammered.");
         }
         else{
           stateHam = WAITING;
@@ -293,11 +283,11 @@ void runStateMachines(){
       case COOL_DOWN:
         if(millis() - startMillis >= HAM_COOL_MS){
           stateHam = WAITING;
-          if(currentHamGoal[0] > 0 || currentHamGoal[1] > 0){
-              // TODO remove? move ink ribbon
-            stateA = RUNNING;
-            stepperA.move(INCR_SIZE_A);
-          }
+          stateA = WAITING;
+          stateX = WAITING;
+          stateY = WAITING;
+          stateZ = WAITING;
+          confirmCommandRecieved(); // TODO find more efficient method
         }
         break;
     }
@@ -330,6 +320,8 @@ void startCommand(){
     stepperZ.setSpeed(MAX_STEPS_Z);
     
     stateZ = RUNNING;
+
+    activeHamGoal = currentHamGoal;
 
     newGoalsSet = false;
   }
@@ -368,26 +360,28 @@ void recvCommand() {
 }
 
 // writes goals from commands into variables
-void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
+void processNewCommand(int *XGoal, int *YGoal, uint8_t *ZGoal, uint8_t *hamGoal) {
   if (newCommandToRead == true) {
     char* commandTmp = strtok(receivedCommand, " ");
     for (int i = 0; i< 4 && commandTmp != 0; ){
       switch(commandTmp[0]){
-        case 'X':{
+        case 'X':
           *XGoal = min(max(0, (atoi(&commandTmp[1]) * STEPS_PER_PIXEL_X)), MAX_STEPS_X);
-          
-        }break;
-        case 'Y':{
+          break;
+        
+        case 'Y':
           *YGoal = -min(max(0, (atoi(&commandTmp[1]) * STEPS_PER_PIXEL_Y)), MAX_STEPS_Y);
-        }break;
-        case 'L': {
+          break;
+        
+        case 'L': 
           *ZGoal = min(max(0, atoi(&commandTmp[1])), NUMBER_LETTERS-1) * STEP_SIZE_Z;
-        }break;
-        case 'T':{
+          break;
+        
+        case 'T':
           int hamLevel = min(max(0, atoi(&commandTmp[1])),255);
           float hamLevelNorm = hamLevel / 255.;
           // float letterArea = area_letters[*ZGoal];
-          unsigned hammerPts = (MAX_HAM_STR-MIN_HAM_STR) * hamLevelNorm ;
+          uint8_t hammerPts = (MAX_HAM_STR-MIN_HAM_STR) * hamLevelNorm ;
           float areaFac =  area_letters[*ZGoal] / 4. ;
           hammerPts =  areaFac > 1. ?  hammerPts * areaFac : hammerPts;
           if((*ZGoal != 97 ||
@@ -397,9 +391,8 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
               *ZGoal != 0) && hammerPts > 0){
             hammerPts += 6;
           }          
-          hamGoal[0] =  0; //hammerPts / (MAX_HAM_STR-MIN_HAM_STR);
-          hamGoal[1] = hammerPts;// % (MAX_HAM_STR-MIN_HAM_STR);
-        }break;
+          *hamGoal = hammerPts;// % (MAX_HAM_STR-MIN_HAM_STR);
+          break;
       }
       commandTmp = strtok(NULL, " ");
     }
@@ -409,11 +402,18 @@ void processNewCommand(int *XGoal, int *YGoal, int *ZGoal, uint8_t *hamGoal) {
 }
 
 void confirmCommandRecieved() {
-  Serial.print("A");
+  Serial.print("A: ");
+  Serial.print(currentXGoal);
+  Serial.print(" ");
+  Serial.print(currentYGoal);
+  Serial.print(" ");
+  Serial.print(currentZGoal);
+  Serial.print(" ");
+  Serial.println(currentHamGoal+MIN_HAM_STR);
 }
 
 void sentRibbonError() {
-  Serial.print("R");
+  Serial.println("R");
 }
 
 bool allAreWaiting() {
