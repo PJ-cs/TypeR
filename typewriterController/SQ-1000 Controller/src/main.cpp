@@ -40,7 +40,7 @@
 // carriage, horizontal movement
 #define DIR_PIN_X 5
 #define STEP_PIN_X 2
-#define MAX_SPEED_X 1500.0
+#define MAX_SPEED_X 2000.0
 #define HOMING_STEPS_X -100000
 // how many steps to the right of stop
 // switch to take, where new home pos
@@ -55,8 +55,8 @@
 // line feed, vertical movement
 #define DIR_PIN_Y 6
 #define STEP_PIN_Y 3
-#define MAX_SPEED_Y 1000.0
-#define ACCEL_Y 10000
+#define MAX_SPEED_Y 3000.0
+#define ACCEL_Y 20000
 // sheet height 
 #define MAX_STEPS_Y 30000 // TODO how to handle, allow no limit?
 #define STEPS_PER_PIXEL_Y 17
