@@ -307,14 +307,14 @@ void startCommand(){
     stateY = RUNNING;
 
     // circular coordinate system for Z (daisy wheel) for faster movemnt
-    // if(abs(currentZGoal - stepperZ.currentPosition()) > MAX_STEPS_Z / 2){
-    //   if(currentZGoal > stepperZ.currentPosition()){
-    //     stepperZ.setCurrentPosition(stepperZ.currentPosition()+ MAX_STEPS_Z);
-    //   }
-    //   else{
-    //     stepperZ.setCurrentPosition(stepperZ.currentPosition()- MAX_STEPS_Z);
-    //   }
-    // }
+    if(abs(currentZGoal - stepperZ.currentPosition()) > MAX_STEPS_Z / 2){
+      if(currentZGoal > stepperZ.currentPosition()){
+        stepperZ.setCurrentPosition(stepperZ.currentPosition()+ MAX_STEPS_Z+2);
+      }
+      else{
+        stepperZ.setCurrentPosition(stepperZ.currentPosition()- MAX_STEPS_Z-2);
+      }
+    }
    
     stepperZ.moveTo(currentZGoal);
     stepperZ.setSpeed(MAX_STEPS_Z);
