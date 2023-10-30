@@ -38,17 +38,22 @@ class TypeRNet(pl.LightningModule):
         transposed_kernel_size = config["transposed_kernel_size"]
         transposed_stride = config["transposed_stride"]
         transposed_padding = config["transposed_padding"]
-        keystrokes_mean = config["keystrokes_mean"]
-        keystrokes_std = config["keystrokes_std"]
-        max_letter_per_pix = config["max_letter_per_pix"]
+        # keystrokes_mean = config["keystrokes_mean"]
+        # keystrokes_std = config["keystrokes_std"]
         letters = config["letters"]
         eps_out = config["eps_out"]
 
-        self.loss = TypeRLoss(max_letter_per_pix)
+        self.loss = TypeRLoss()
 
         # build model
        
         self.base_model = torchvision.models.resnet18(pretrained=True)
+        
+        original_conv1_weights = self.base_model.conv1.weight.data
+        new_conv1_weights = torch.mean(original_conv1_weights, dim=1, keepdim=True)
+        self.base_model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        self.base_model.conv1.weight.data = new_conv1_weights
+
         self.base_layers = list(self.base_model.children())
 
         self.layer0 = nn.Sequential(*self.base_layers[:3]) # size=(N, 64, x.H/2, x.W/2)
@@ -69,23 +74,23 @@ class TypeRNet(pl.LightningModule):
         self.conv_up1 = convrelu(64 + 256, 256, 3, 1)
         self.conv_up0 = convrelu(64 + 256, 128, 3, 1)
 
-        self.conv_original_size0 = convrelu(3, 64, 3, 1)
+        self.conv_original_size0 = convrelu(1, 64, 3, 1)
         self.conv_original_size1 = convrelu(64, 64, 3, 1)
-        self.conv_original_size2 = convsimgmoid(64 + 128, 100, 3, 1)
+        self.conv_original_size2 = convrelu(64 + 128, 64, 3, 1)
+        self.conv_last = nn.Conv2d(64, len(letters)+1, 1)
 
         ### custom init weights for last conv, are key strokes
-        nn.init.trunc_normal_(self.conv_original_size2, keystrokes_mean, keystrokes_std, 0, 1.)
+        #nn.init.trunc_normal_(self.conv_original_size2, keystrokes_mean, keystrokes_std, 0, 1.)
 
         ###
         transposed_convs_weights = load_transp_conv_weights(font_path, transposed_kernel_size, letters)
-        self.transp_conv = CustomTransposedConv2d(transposed_convs_weights, len(letters), 1, transposed_kernel_size, transposed_stride, transposed_padding)
+        self.transp_conv = CustomTransposedConv2d(transposed_convs_weights, len(letters)+1, 1, transposed_kernel_size, transposed_stride, transposed_padding)
         
         for param in self.transp_conv.parameters():
             param.requires_grad = False
 
         # set parameters for last layers
-        self.max_letter_per_pix = max_letter_per_pix
-        self.num_letters = len(letters)
+        self.num_letters = len(letters)+1
         self.eps_out = eps_out
 
         self.val_loss_list = []
@@ -132,8 +137,10 @@ class TypeRNet(pl.LightningModule):
         # feat1 = torch.tanh(self.conv1(x))
         # feat2 = torch.sigmoid(self.conv2(feat1))
         # cap of max five letters per pixel
+        x = self.conv_last(x)
+        x = nn.functional.softmax(x, dim=1)
 
-        _, indices = torch.topk(x, self.max_letter_per_pix, dim=1)
+        indices = torch.argmax(x, dim=1, keepdim=True)
         mask = torch.zeros_like(x)
         mask = mask.scatter(1, indices, 1)
         x_masked = x * mask
@@ -149,27 +156,27 @@ class TypeRNet(pl.LightningModule):
     def training_step(self, batch, batch_idx : int) -> STEP_OUTPUT:
         img_in, img_target, label = batch
         out_img, key_strokes = self.forward(img_in)
-        mse_loss, key_stroke_loss = self.loss.forward(key_strokes, out_img[:, :, 15:self.img_size-15, 15:self.img_size-15], img_target[:, :, 15:self.img_size-15, 15:self.img_size-15])
-        loss = self.alpha * mse_loss + self.beta * key_stroke_loss
+        mse_loss = self.loss.forward(key_strokes, out_img[:, :, 15:self.img_size-15, 15:self.img_size-15], img_target[:, :, 15:self.img_size-15, 15:self.img_size-15])
+        loss = self.alpha * mse_loss # + self.beta * key_stroke_loss
         self.log("train_loss", float(loss))
         self.log("train_mse_loss", float(mse_loss))
-        self.log("train_key_stroke_loss", float(key_stroke_loss))
+        # self.log("train_key_stroke_loss", float(key_stroke_loss))
         return loss
     
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT | None:
         img_in, img_target, label = batch
         # TODO use label to get mse per class
         out_img, key_strokes = self.forward(img_in)
-        mse_loss, key_stroke_loss = self.loss.forward(key_strokes, out_img[:, :, 15:self.img_size-15, 15:self.img_size-15], img_target[:, :, 15:self.img_size-15, 15:self.img_size-15])
-        loss = self.alpha * mse_loss + self.beta * key_stroke_loss
+        mse_loss = self.loss.forward(key_strokes, out_img[:, :, 15:self.img_size-15, 15:self.img_size-15], img_target[:, :, 15:self.img_size-15, 15:self.img_size-15])
+        loss = self.alpha * mse_loss # + self.beta * key_stroke_loss
         self.log("val_loss", float(loss))
         self.log("val_mse_loss", float(mse_loss))
-        self.log("val_key_stroke_loss", float(key_stroke_loss))
+        # self.log("val_key_stroke_loss", float(key_stroke_loss))
 
         self.val_loss_list.append(loss)
 
         if batch_idx % 10 == 0:      
-            grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
+            grid_in = torchvision.utils.make_grid(convert_gray_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
             grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(out_img[:8, :, 15:self.img_size-15, 15:self.img_size-15]), normalize=True).permute(1,2,0).cpu().numpy()
             mlflow.log_image(grid_in, f'validation_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'validation_out_{self.current_epoch}_{batch_idx}.png')
@@ -184,16 +191,16 @@ class TypeRNet(pl.LightningModule):
     def test_step(self, batch, batch_idx) -> STEP_OUTPUT | None:
         img_in, img_target, label = batch
         out_img, key_strokes = self.forward(img_in)
-        mse_loss, key_stroke_loss = self.loss.forward(key_strokes, out_img[:, :, 15:self.img_size-15, 15:self.img_size-15], img_target[:, :, 15:self.img_size-15, 15:self.img_size-15])
-        loss = self.alpha * mse_loss + self.beta * key_stroke_loss
+        mse_loss = self.loss.forward(key_strokes, out_img[:, :, 15:self.img_size-15, 15:self.img_size-15], img_target[:, :, 15:self.img_size-15, 15:self.img_size-15])
+        loss = self.alpha * mse_loss #+ self.beta * key_stroke_loss
         self.log("test_loss", float(loss))
         self.log("test_mse_loss", float(mse_loss))
-        self.log("test_key_stroke_loss", float(key_stroke_loss))
+        #self.log("test_key_stroke_loss", float(key_stroke_loss))
 
         self.val_loss_list.append(loss)
 
         if batch_idx % 10 == 0:      
-            grid_in = torchvision.utils.make_grid(convert_rgb_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
+            grid_in = torchvision.utils.make_grid(convert_gray_tensor_for_plot(img_in[:8])).permute(1,2,0).cpu().numpy()
             grid_out = torchvision.utils.make_grid(torchvision.transforms.functional.invert(out_img[:8]), normalize=True).permute(1,2,0).cpu().numpy()
             mlflow.log_image(grid_in, f'test_rgb_{self.current_epoch}_{batch_idx}.png')
             mlflow.log_image(grid_out, f'test_out_{self.current_epoch}_{batch_idx}.png')
@@ -231,11 +238,13 @@ class CustomTransposedConv2d(nn.Module):
 def convrelu(in_channels, out_channels, kernel, padding):
   return nn.Sequential(
     nn.Conv2d(in_channels, out_channels, kernel, padding=padding),
+    nn.BatchNorm2d(out_channels),
     nn.ReLU(inplace=True),
   )
 
 def convsimgmoid(in_channels, out_channels, kernel, padding):
   return nn.Sequential(
     nn.Conv2d(in_channels, out_channels, kernel, padding=padding),
+    nn.BatchNorm2d(out_channels),
     nn.Sigmoid(),
   )
