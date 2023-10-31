@@ -49,8 +49,8 @@ class BigImagesDataset(Dataset):
         return image, target, torch.tensor(label)
     
 def get_img_transforms_train(img_size: int)-> v2.Compose:
-    return v2.Compose([v2.ToImageTensor(),
-                    v2.ConvertImageDtype(torch.float32),
+    return v2.Compose([v2.ToImage(),
+                    v2.ToDtype(torch.float32, scale=True),
                     v2.RandomCrop((img_size, img_size)),
                     v2.RandomHorizontalFlip(p=0.2),
                     #v2.RandomInvert(0.5),
@@ -60,8 +60,8 @@ def get_img_transforms_train(img_size: int)-> v2.Compose:
                     v2.Normalize(mean=[0.455], std=[0.269]),
                     ])  
 def get_img_transforms_train_target(img_size: int)-> v2.Compose:
-    return v2.Compose([v2.ToImageTensor(),
-                v2.ConvertImageDtype(torch.float32),
+    return v2.Compose([v2.ToImage(),
+                v2.ToDtype(torch.float32, scale=True),
                 v2.RandomCrop((img_size, img_size)),
                 v2.RandomHorizontalFlip(p=0.2),
                 #v2.RandomInvert(0.5),
@@ -71,16 +71,16 @@ def get_img_transforms_train_target(img_size: int)-> v2.Compose:
                 ])                                                  
 
 def get_img_transforms_test(img_size:int) -> v2.Compose:
-    return v2.Compose([v2.ToImageTensor(),
-                        v2.ConvertImageDtype(torch.float32),
+    return v2.Compose([v2.ToImage(),
+                        v2.ToDtype(torch.float32, scale=True),
                           v2.CenterCrop((img_size, img_size)),
                             lambda x: v2.functional.invert(x),
                             v2.Grayscale(num_output_channels=1),
                             v2.Normalize(mean=[0.445], std=[0.269])])
 
 def get_img_transforms_test_target(img_size:int)-> v2.Compose:
-    return v2.Compose([v2.ToImageTensor(),
-                        v2.ConvertImageDtype(torch.float32),
+    return v2.Compose([v2.ToImage(),
+                        v2.ToDtype(torch.float32, scale=True),
                         v2.CenterCrop((img_size, img_size)),
                         v2.Grayscale(num_output_channels=1),
                         #v2.Normalize(mean=[0.445], std=[0.269]),
