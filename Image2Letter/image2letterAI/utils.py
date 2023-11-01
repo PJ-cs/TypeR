@@ -45,7 +45,7 @@ def convert_gray_tensor_for_plot(tensor_img: torch.Tensor) -> torch.Tensor:
     #tmp = tmp.permute(0,2,3,1)
     return tmp
 
-def load_transp_conv_weights(font_path: str, kernel_size: int, letters: list[str]):
+def load_letter_conv_weights(font_path: str, kernel_size: int, letters: list[str]) -> torch.Tensor:
     """loads the font from the file path specified in the config
     and creates the transposed convolutions from it"""
 
@@ -70,11 +70,12 @@ def load_transp_conv_weights(font_path: str, kernel_size: int, letters: list[str
 
         letter_tensor = transform(im).float().squeeze(0) / 255.
         convolutions.append(letter_tensor)
-    # space / no letter hit
-    space_tensor = torch.zeros((kernel_size, kernel_size))
-    convolutions.append(space_tensor)
     
     return torch.stack(convolutions).unsqueeze(1)
+
+def load_letter_conv_weights_norm(letter_weights: torch.Tensor) -> torch.Tensor:
+
+    return nn.functional.normalize(letter_weights, p=1, dim=1)
 
 def get_rel_area_letters(font_path: str, letters: list[str]) -> list[float]:
     kernel_size = 65

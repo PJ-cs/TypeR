@@ -50,7 +50,7 @@ def tune_typeR(
 ):
     
     config = {
-    "experiment_name": "simple Net "+ str(datetime.datetime.now()),
+    "experiment_name": "reverse Net "+ str(datetime.datetime.now()),
     "tracking_uri": str(configFile.ML_FLOW_TRACKING_URI),
 
     "lr" : tune.loguniform(1e-4, 1e-1),
@@ -62,7 +62,7 @@ def tune_typeR(
 
     "img_dir" : str(configFile.TRAINING_IMGS_DIR),
     "img_size" : 224,
-    "img_size_test": 448,
+    "img_size_test": 224,
     "batch_size": tune.choice([1]),
     "val_ratio" : 0.2,
     "test_ratio" : 0.2,
@@ -70,12 +70,11 @@ def tune_typeR(
     "precision": tune.choice([32]),
     
     "font_path": str(configFile.FONT_PATH),
-    "transposed_kernel_size" : 64,
-    "transposed_stride": round(64*0.035),
-    "transposed_padding": 31,
+    "transposed_kernel_size" : 31,
+    "transposed_stride": 4,
+    "transposed_padding": 15,
     "keystrokes_mean": 0.05,
     "keystrokes_std": 0.2,
-    "max_letter_per_pix": 5,
     "letters": configFile.TYPEWRITER_CONFIG["letterList"],
     "eps_out": 1./100,
     }
