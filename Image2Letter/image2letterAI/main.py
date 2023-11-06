@@ -2,7 +2,7 @@ import os
 import config.config as configFile
 import requests
 from pathlib import Path
-from utils import load_transp_conv_weights
+from utils import load_letter_conv_weights
 import cv2
 
 

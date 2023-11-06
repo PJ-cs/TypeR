@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torchvision.models as models
 from typing import Any
-from utils import load_transp_conv_weights
+from utils import load_letter_conv_weights
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import optim
 import torchvision
@@ -83,7 +83,7 @@ class TypeRNet(pl.LightningModule):
         #nn.init.trunc_normal_(self.conv_original_size2, keystrokes_mean, keystrokes_std, 0, 1.)
 
         ###
-        transposed_convs_weights = load_transp_conv_weights(font_path, transposed_kernel_size, letters)
+        transposed_convs_weights = load_letter_conv_weights(font_path, transposed_kernel_size, letters)
         self.transp_conv = CustomTransposedConv2d(transposed_convs_weights, len(letters)+1, 1, transposed_kernel_size, transposed_stride, transposed_padding)
         
         for param in self.transp_conv.parameters():
