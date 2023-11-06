@@ -215,13 +215,14 @@ class TypeRNet(pl.LightningModule):
     
 
 class CustomTransposedConv2d(nn.Module):
-    def __init__(self, weights, in_channels, out_channels, kernel_size, stride=1, padding=0):
+    def __init__(self, weights, in_channels, out_channels, kernel_size, stride=1, padding=0, out_padding=0):
         super(CustomTransposedConv2d, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
+        self.out_padding = out_padding
         self.weights = nn.Parameter(weights)
         
         # Define the hard-coded weights (example weights)
@@ -232,7 +233,7 @@ class CustomTransposedConv2d(nn.Module):
     def forward(self, x):
         # Perform the transposed convolution operation with hard-coded weights
         output = nn.functional.conv_transpose2d(x, self.weights, bias=self.bias,
-                                                       stride=self.stride, padding=self.padding)
+                                                       stride=self.stride, padding=self.padding, output_padding=self.out_padding)
         return output
     
 def convrelu(in_channels, out_channels, kernel, padding):

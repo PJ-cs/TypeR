@@ -77,8 +77,7 @@ def load_letter_conv_weights(font_path: str, kernel_size: int, letters: list[str
     return torch.stack(convolutions).unsqueeze(1)
 
 
-def get_rel_area_letters(font_path: str, letters: list[str]) -> list[float]:
-    kernel_size = 65
+def get_rel_area_letters(font_path: str, kernel_size : int, letters: list[str]) -> list[float]:
     font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size*.88))
 
     transform = transforms.Compose([
