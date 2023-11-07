@@ -70,9 +70,6 @@ def load_letter_conv_weights(font_path: str, kernel_size: int, letters: list[str
 
         letter_tensor = transform(im).float().squeeze(0) / 255.
         convolutions.append(letter_tensor)
-    # space / no letter hit
-    space_tensor = torch.zeros((kernel_size, kernel_size))
-    convolutions.append(space_tensor)
     
     return torch.stack(convolutions).unsqueeze(1)
 

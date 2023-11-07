@@ -8,7 +8,6 @@ import torchvision
 import torch
 import pytorch_lightning as pl
 from torch.optim import lr_scheduler
-from utils import TypeRLoss
 import mlflow
 from utils import convert_rgb_tensor_for_plot, convert_gray_tensor_for_plot
 
