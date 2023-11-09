@@ -151,3 +151,35 @@ def get_gaussian_kernel(k=3, mu=0, sigma=1, normalize=True):
         gaussian_2D = gaussian_2D / np.sum(gaussian_2D)
     return gaussian_2D
 
+
+def nn_hits_2_np_images(letter_hits: torch.Tensor, stride: int, tw_letters: list[str], nn_letters: list[str], letters_per_pixel: int) -> tuple[np.ndarray, np.array]:
+    # assert nn_letters are a subset of tw_letters
+    assert(set(tw_letters).issuperset(set(nn_letters)))
+    letter_channels, h_nn, w_nn = letter_hits.shape
+    assert(letter_channels == len(nn_letters))
+
+    letter_hits_upscaled = np.zeros((letter_channels,  h_nn*stride, w_nn*stride))
+    letter_hits_upscaled[:, ::stride, :: stride] = letter_hits.detach().cpu().numpy()
+
+    # convert letter hits to two matrices one for letter index, one for strength of that letter
+    output_np_strength = np.zeros((letters_per_pixel, h_nn*stride, w_nn*stride), dtype=np.float16)
+    output_np_letter = np.zeros_like(output_np_strength,dtype=np.uint8)
+
+    indices_map = {}
+    for nn_index, nn_letter in enumerate(nn_letters):
+        indices_map[nn_index] = tw_letters.index(nn_letter)
+    
+
+    for letter_index_nn in range(letter_channels):
+        channel_mat_nn = letter_hits_upscaled[letter_index_nn]
+
+        for out_channel_num in range(letters_per_pixel):
+            if np.sum(channel_mat_nn) == 0:
+                break
+            output_channel = output_np_strength[out_channel_num]
+            valid_pixel_mak = output_channel <= 0 and channel_mat_nn > 0
+            output_np_strength[out_channel_num][valid_pixel_mak] = channel_mat_nn[channel_mat_nn > 0]
+            output_np_letter[out_channel_num][valid_pixel_mak] = indices_map[letter_index_nn]
+            channel_mat_nn[valid_pixel_mak] = 0
+
+    return output_np_letter, output_np_strength
