@@ -131,7 +131,6 @@ def write_letter(x: int, y: int, letter: int, thickness: int) -> bytes:
     handleArduinoReturn(arduino.readline())
 
 
-# TODO this is wrong, there can be multiple letters per pixel, up to five channels
 def write_img(np_letter: np.ndarray, np_strength: np.ndarray):
     assert(np.all(np_letter.shape == np_strength.shape))
     letter_per_pix, height, width = np_letter.shape
