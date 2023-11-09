@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw
 import torchvision.transforms as transforms
 import torch.nn as nn
 import os
+import pickle
 
 def set_seeds(seed=42):
     """Set seeds for reproducibility."""
@@ -183,3 +184,6 @@ def nn_hits_2_np_images(letter_hits: torch.Tensor, stride: int, tw_letters: list
             channel_mat_nn[valid_pixel_mak] = 0
 
     return output_np_letter, output_np_strength
+
+def serialize_tw_input(np_letter: np.ndarray, np_strength: np.ndarray) -> bytes:
+    return pickle.dumps({"np_letter": np_letter, "np_strength": np_strength})

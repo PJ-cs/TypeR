@@ -124,7 +124,7 @@ LETTER_DICT: dict[str, int] = {letter: i for i, letter in enumerate(LETTER_LIST)
 
 arduino: serial.Serial = find_arduino(SERIAL_NUMBER)
 
-
+# TODO create typewriter object with methods, constraints (rows, columns), information
 def write_letter(x: int, y: int, letter: int, thickness: int) -> bytes:
     command: str = f"<X{int(x)} Y{int(y)} L{int(letter)} T{int(thickness)}>"
     arduino.write(bytes(command, "utf-8"))
@@ -132,13 +132,19 @@ def write_letter(x: int, y: int, letter: int, thickness: int) -> bytes:
 
 
 # TODO this is wrong, there can be multiple letters per pixel, up to five channels
-def write_img(img: np.ndarray):
-    for row_index, row in enumerate(img):
-        for column_index, pixel in enumerate(row):
+def write_img(np_letter: np.ndarray, np_strength: np.ndarray):
+    assert(np.all(np_letter.shape == np_strength.shape))
+    letter_per_pix, height, width = np_letter.shape
+    for row_index in range(height):
+        for column_index in range(width):
             # X for typewriter is movement in line, pixel[0] is letter index according to list above
             # pixel[1] is thickness
-            response_code = write_letter(column_index, row_index, pixel[0], pixel[1])
-            handleArduinoReturn(response_code)
+            for channel in range(letter_per_pix):
+                strength = np_strength[channel][row_index][column_index]
+                if strength > 0:
+                    letter_index = np_letter[channel][row_index][column_index]
+                    response_code = write_letter(column_index, row_index, letter_index, strength)
+                    handleArduinoReturn(response_code)
 
 
 def handleArduinoReturn(response_code: bytes):
