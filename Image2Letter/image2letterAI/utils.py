@@ -153,6 +153,7 @@ def get_gaussian_kernel(k=3, mu=0, sigma=1, normalize=True):
     return gaussian_2D
 
 
+# TODO use tiff image format instead of np files, more universal to transfer, and use integer based strength instead of float
 def nn_hits_2_np_images(letter_hits: torch.Tensor, stride: int, tw_letters: list[str], nn_letters: list[str], letters_per_pixel: int) -> tuple[np.ndarray, np.array]:
     # assert nn_letters are a subset of tw_letters
     assert(set(tw_letters).issuperset(set(nn_letters)))

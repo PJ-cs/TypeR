@@ -38,7 +38,7 @@ class Typewriter:
     def _handleArduinoReturn(self, response_code: bytes):
         response_str = response_code.decode("utf-8")
         if response_str.startswith("R"):
-            # TODO failure routine, to continue here when restarted
+            # TODO failure routine, to continue here when restarted, save state of typewrite to pickle, 
             raise IOError("The typewriter ribbon is empty")
         elif not response_str.startswith("A"):
             raise Exception(f"Encountered unexpected arduino response: '{response_code}'")
