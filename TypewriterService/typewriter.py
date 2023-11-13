@@ -27,7 +27,6 @@ class Typewriter:
             self.arduino: serial.Serial = self._find_arduino(serial_number)
             time.sleep(2)
 
-    
     def _find_arduino(self, serial_number: str) -> serial.Serial:
         for pinfo in serial.tools.list_ports.comports():
             if pinfo.serial_number == serial_number:
@@ -45,7 +44,11 @@ class Typewriter:
             raise Exception(f"Encountered unexpected arduino response: '{response_code}'")
 
     def write_letter(self, x: int, y: int, letter: int, thickness: int) -> bytes:
-        # todo assert correctness of input and limits
+        # assert correctness of input and limits
+        assert(y >= 0 and y < self.resolution_vert)
+        assert(x >= 0 and x < self.resolution_horiz)
+        assert(letter >= 0 and letter < len(self.letters_list))
+        assert(thickness >= 0 and thickness <= 255)
         self.current_horizontal_pos = x
         self.current_vertical_pos = y
         self.current_letter_index = letter
@@ -63,6 +66,8 @@ class Typewriter:
         assert(np.all(np_letter.shape == np_strength.shape))
         assert(len(np_letter.shape) == 3)
         letter_per_pix, height, width = np_letter.shape
+        assert(height <= self.resolution_vert)
+        assert(width <= self.resolution_horiz)
         for row_index in range(height):
             for column_index in range(width):
                 # X for typewriter is movement in line, pixel[0] is letter index according to list above
@@ -71,8 +76,7 @@ class Typewriter:
                     strength = int(np_strength[channel][row_index][column_index])
                     if strength > 0:
                         letter_index = np_letter[channel][row_index][column_index]
-                        response_code = self.write_letter(column_index, row_index, letter_index, strength)
-                        self._handleArduinoReturn(response_code)
+                        self.write_letter(column_index, row_index, letter_index, strength)
 
     def write_text(self, text: list[str], thickness: int):
         # print("writing text: ", text)
@@ -89,13 +93,9 @@ class Typewriter:
                 running_horizontal = 0
                 continue
             else:
-                if letter not in self.letter_dict:  # print space, if letter unknown
-                    running_horizontal += self.pixel_per_letter_horiz
-                    continue
-                self._handleArduinoReturn(
-                    self.write_letter(
-                        running_horizontal, running_vertical, self.letter_dict[letter], thickness
-                    )
+                assert(letter in self.letter_dict)
+                self.write_letter(
+                    running_horizontal, running_vertical, self.letter_dict[letter], thickness  
                 )
             running_horizontal += self.pixel_per_letter_horiz
 
