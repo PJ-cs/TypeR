@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw
 import torchvision.transforms as transforms
 import torch.nn as nn
 import os
-import pickle
+import cv2
 
 def set_seeds(seed=42):
     """Set seeds for reproducibility."""
@@ -155,16 +155,26 @@ def get_gaussian_kernel(k=3, mu=0, sigma=1, normalize=True):
 
 # TODO use tiff image format instead of np files, more universal to transfer, and use integer based strength instead of float
 def nn_hits_2_np_images(letter_hits: torch.Tensor, stride: int, tw_letters: list[str], nn_letters: list[str], letters_per_pixel: int) -> tuple[np.ndarray, np.array]:
+    """
+    letter_hits: np array with values in range [0., 1.]
+    stride: int, convolution stride used in creating letter_hits
+    tw_letters: list of letters available for typewriter
+    nn_letters: list of letters used by neural net, subset of tw
+    letters_per_pixel: amount of overlayed letters for one output pixel
+    """ 
+    # assert letter_hits are in range [0., 1.]
+    assert(np.max(letter_hits)<= 1. and np.min(letter_hits >= 0.))   
     # assert nn_letters are a subset of tw_letters
     assert(set(tw_letters).issuperset(set(nn_letters)))
     letter_channels, h_nn, w_nn = letter_hits.shape
+    # assert letter_hits has the correct amount of channels
     assert(letter_channels == len(nn_letters))
 
     letter_hits_upscaled = np.zeros((letter_channels,  h_nn*stride, w_nn*stride))
     letter_hits_upscaled[:, ::stride, :: stride] = letter_hits.detach().cpu().numpy()
 
     # convert letter hits to two matrices one for letter index, one for strength of that letter
-    output_np_strength = np.zeros((letters_per_pixel, h_nn*stride, w_nn*stride), dtype=np.float16)
+    output_np_strength = np.zeros((letters_per_pixel, h_nn*stride, w_nn*stride), dtype=np.uint8)
     output_np_letter = np.zeros_like(output_np_strength,dtype=np.uint8)
 
     indices_map = {}
@@ -179,12 +189,18 @@ def nn_hits_2_np_images(letter_hits: torch.Tensor, stride: int, tw_letters: list
             if np.sum(channel_mat_nn) == 0:
                 break
             output_channel = output_np_strength[out_channel_num]
-            valid_pixel_mak = output_channel <= 0 and channel_mat_nn > 0
-            output_np_strength[out_channel_num][valid_pixel_mak] = channel_mat_nn[channel_mat_nn > 0]
-            output_np_letter[out_channel_num][valid_pixel_mak] = indices_map[letter_index_nn]
-            channel_mat_nn[valid_pixel_mak] = 0
+            valid_pixel_mask = output_channel <= 0 and channel_mat_nn > 0
+            output_np_strength[out_channel_num][valid_pixel_mask] = channel_mat_nn[valid_pixel_mask] * 255
+            output_np_letter[out_channel_num][valid_pixel_mask] = indices_map[letter_index_nn]
+            channel_mat_nn[valid_pixel_mask] = 0
 
     return output_np_letter, output_np_strength
 
-def serialize_tw_input(np_letter: np.ndarray, np_strength: np.ndarray) -> bytes:
-    return pickle.dumps({"np_letter": np_letter, "np_strength": np_strength})
+
+def np_2_bytes(np_arr: np.ndarray) -> bytes:
+    """
+    returns letter bytes and strength bytes to be easily transfered
+    """
+    success, np_encode =  cv2.imencode('.tiff', np_arr)
+    assert(success)
+    return np_encode.tobytes()

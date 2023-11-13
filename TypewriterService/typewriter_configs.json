@@ -15,7 +15,6 @@
         "pixelPerLetterHoriz": 20,
         "pixelPerLetterVert": 40,
         "resolutionHoriz": 1750,
-        "resolutionVert": 2460,
-        "boldLevels": 5
+        "resolutionVert": 2460
     }
 }

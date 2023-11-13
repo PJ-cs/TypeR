@@ -3,6 +3,7 @@ import serial
 import numpy as np
 import time
 import random
+import cv2
 
 class Typewriter:
     def __init__(self, config_json_path: str, machine_name: str) -> None:
@@ -55,6 +56,10 @@ class Typewriter:
         self._handleArduinoReturn(self.arduino.readline())
     
     def write_img(self, np_letter: np.ndarray, np_strength: np.ndarray):
+        """
+        np_letter array of letter indices [uint8]
+        np_strength array of letter strengths [uint8]
+        """
         assert(np.all(np_letter.shape == np_strength.shape))
         assert(len(np_letter.shape) == 3)
         letter_per_pix, height, width = np_letter.shape
@@ -63,7 +68,7 @@ class Typewriter:
                 # X for typewriter is movement in line, pixel[0] is letter index according to list above
                 # pixel[1] is thickness
                 for channel in range(letter_per_pix):
-                    strength = int(np_strength[channel][row_index][column_index] * 255)
+                    strength = int(np_strength[channel][row_index][column_index])
                     if strength > 0:
                         letter_index = np_letter[channel][row_index][column_index]
                         response_code = self.write_letter(column_index, row_index, letter_index, strength)
@@ -135,3 +140,8 @@ class Typewriter:
                     thickness,
                 )
 
+
+def bytes_2_np_img(bytes_img: bytes) -> np.ndarray:
+    np_buffer = np.frombuffer(bytes_img)
+    np_img = cv2.imdecode(np_buffer, cv2.IMREAD_UNCHANGED)
+    return np_img
