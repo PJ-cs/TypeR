@@ -4,13 +4,14 @@ import numpy as np
 import time
 import random
 import cv2
+import serial.tools.list_ports
 
 class Typewriter:
     def __init__(self, config_json_path: str, machine_name: str) -> None:
         with open(config_json_path, 'r') as f:
             config_dict = json.load(f)[machine_name]
             serial_number = config_dict["serialNumber"]
-            self.letters_list = config_dict["lettersList"]
+            self.letters_list = config_dict["letterList"]
             self.resolution_horiz = config_dict["resolutionHoriz"]
             self.resolution_vert = config_dict["resolutionVert"]
             self.pixel_per_letter_horiz = config_dict["pixelPerLetterHoriz"]

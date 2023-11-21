@@ -83,7 +83,7 @@
 #define NUM_O_HAM_LEVEL 3
 #define HAM_FACTOR 1.0
 #define MAX_HAM_STR 230   // 0- 255, limit strength of hammer this is ca. 10.4 V
-#define MIN_HAM_STR 167 // for some letters, six instead of 9
+#define MIN_HAM_STR 160 // for some letters, six instead of 9, at least
 
 //minimal time to wait until next hammer hit
 #define HAM_COOL_MS 30
@@ -201,16 +201,25 @@ void loop() {
 }
 
 void runStateMachines(){
+  static int a_limit_not_triggered = 0;
   switch(stateA){ // TODO implement stop switch for ribbon sensor
     case RUNNING:
       if(!digitalRead(LIMIT_A_AXIS_PIN)){
         stateA = AT_ENDSTOP;
+        a_limit_not_triggered = 0;
         break;
       }
       if(stepperA.distanceToGo() == 0){
-        stateA = RIBBON_ERROR;
-        sentRibbonError();
-        break;
+        a_limit_not_triggered++;
+        if (a_limit_not_triggered > 6){
+          stateA = RIBBON_ERROR;
+          a_limit_not_triggered = 0;
+          sentRibbonError();
+          break;
+        }else{
+          stateA = AT_POS;
+          break;
+        }
       }      
       stepperA.run();
       break;
