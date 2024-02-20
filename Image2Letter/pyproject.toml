@@ -1,0 +1,5 @@
+[project]
+name = "your-package-name"
+version = "0.0.1"
+description = "A brief description of your package"
+authors = []

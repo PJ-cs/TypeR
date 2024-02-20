@@ -4,9 +4,9 @@ import torch
 import PIL.ImageFont as ImageFont
 from PIL import Image, ImageDraw
 import torchvision.transforms as transforms
-import torch.nn as nn
 import os
 import cv2
+
 
 def set_seeds(seed=42):
     """Set seeds for reproducibility."""
@@ -18,74 +18,43 @@ def set_seeds(seed=42):
     eval("setattr(torch.backends.cudnn, 'benchmark', False)")
     os.environ["PYTHONHASHSEED"] = str(seed)
 
-class UnNormalize(object):
-    def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
-
-    def __call__(self, tensor):
-        """
-        Args:
-            tensor (Tensor): Tensor image of size (B, C, H, W) to be normalized.
-        Returns:
-            Tensor: Normalized image.
-        """
-        for img in tensor:
-            for t, m, s in zip(img, self.mean, self.std):
-                t.mul_(s).add_(m)
-                # The normalize code -> t.sub_(m).div_(s)
-        return tensor
-
-def convert_rgb_tensor_for_plot(tensor_img: torch.Tensor) -> torch.Tensor:
-    tmp = UnNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(tensor_img)
-    #tmp = tmp.permute(0,2,3,1)
-    return tmp
-
-def convert_gray_tensor_for_plot(tensor_img: torch.Tensor) -> torch.Tensor:
-    tmp = UnNormalize(mean=[0.445], std=[0.269])(tensor_img)
-    #tmp = tmp.permute(0,2,3,1)
-    return tmp
 
 def load_letter_conv_weights(font_path: str, kernel_size: int, letters: list[str]):
     """loads the font from the file path specified in the config
     and creates the transposed convolutions from it"""
 
-    font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size*.88))
+    font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size * 0.88))
 
-    transform = transforms.Compose([
-        transforms.PILToTensor()
-    ])
+    transform = transforms.Compose([transforms.PILToTensor()])
 
     all_letters_text = "".join(letters)
     left, top, right, bottom = font.getbbox(all_letters_text)
-    y = (kernel_size // 2) -  ((bottom-top)//2)-top
+    y = (kernel_size // 2) - ((bottom - top) // 2) - top
 
     convolutions: list[torch.Tensor] = []
     for letter in letters:
         im = Image.new("L", (kernel_size, kernel_size), 0)
         draw = ImageDraw.Draw(im)
         left, top, right, bottom = font.getbbox(letter)
-        x = (kernel_size // 2) -  ((right-left)//2)
-        
-        draw.multiline_text((x,y), letter, 255, font=font)
+        x = (kernel_size // 2) - ((right - left) // 2)
 
-        letter_tensor = transform(im).float().squeeze(0) / 255.
+        draw.multiline_text((x, y), letter, 255, font=font)
+
+        letter_tensor = transform(im).float().squeeze(0) / 255.0
         letter_tensor = letter_tensor / letter_tensor.sum()
         convolutions.append(letter_tensor)
-    
+
     return torch.stack(convolutions).unsqueeze(1)
 
 
-def get_rel_area_letters(font_path: str, kernel_size : int, letters: list[str]) -> list[float]:
-    font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size*.88))
+def get_rel_area_letters(font_path: str, kernel_size: int, letters: list[str]) -> list[float]:
+    font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size * 0.88))
 
-    transform = transforms.Compose([
-        transforms.PILToTensor()
-    ])
+    transform = transforms.Compose([transforms.PILToTensor()])
 
     all_letters_text = "".join(letters)
     left, top, right, bottom = font.getbbox(all_letters_text)
-    y = (kernel_size // 2) -  ((bottom-top)//2)-top
+    y = (kernel_size // 2) - ((bottom - top) // 2) - top
 
     letter_areas: list[float] = []
 
@@ -93,22 +62,22 @@ def get_rel_area_letters(font_path: str, kernel_size : int, letters: list[str]) 
         im = Image.new("L", (kernel_size, kernel_size), 0)
         draw = ImageDraw.Draw(im)
         left, top, right, bottom = font.getbbox(letter)
-        x = (kernel_size // 2) -  ((right-left)//2)
-        
-        draw.multiline_text((x,y), letter, 255, font=font)
+        x = (kernel_size // 2) - ((right - left) // 2)
 
-        letter_tensor = transform(im).float().squeeze(0) / 255.
+        draw.multiline_text((x, y), letter, 255, font=font)
+
+        letter_tensor = transform(im).float().squeeze(0) / 255.0
 
         letter_areas.append(float(letter_tensor.sum()))
 
     # norm areas to maximal area to range [0,1]
     letter_areas_tensor = torch.FloatTensor(letter_areas)
-    max_area : float = letter_areas_tensor.max()
+    max_area: float = letter_areas_tensor.max()
 
     return letter_areas_tensor / max_area
-        
 
-def calc_receptive_field(layer_params : list[tuple[int, int, int]]):
+
+def calc_receptive_field(layer_params: list[tuple[int, int, int]]):
     """
     layer_params : (k_l kernel size, s_l stride, p_l padding)
     """
@@ -120,17 +89,17 @@ def calc_receptive_field(layer_params : list[tuple[int, int, int]]):
         for i in range(0, l):
             S *= layer_params[i][1]
         r += (layer_params[l][0] - 1) * S
-        S=1
+        S = 1
     return r
 
 
 def get_sobel_kernel(k=3):
     # get range
-    range = np.linspace(-(k // 2), k // 2, k)
+    range_k = np.linspace(-(k // 2), k // 2, k)
     # compute a grid the numerator and the axis-distances
-    x, y = np.meshgrid(range, range)
+    x, y = np.meshgrid(range_k, range_k)
     sobel_2D_numerator = x
-    sobel_2D_denominator = (x ** 2 + y ** 2)
+    sobel_2D_denominator = x**2 + y**2
     sobel_2D_denominator[:, k // 2] = 1  # avoid division by zero
     sobel_2D = sobel_2D_numerator / sobel_2D_denominator
     return sobel_2D
@@ -141,11 +110,11 @@ def get_gaussian_kernel(k=3, mu=0, sigma=1, normalize=True):
     gaussian_1D = np.linspace(-1, 1, k)
     # compute a grid distance from center
     x, y = np.meshgrid(gaussian_1D, gaussian_1D)
-    distance = (x ** 2 + y ** 2) ** 0.5
+    distance = (x**2 + y**2) ** 0.5
 
     # compute the 2 dimension gaussian
-    gaussian_2D = np.exp(-(distance - mu) ** 2 / (2 * sigma ** 2))
-    gaussian_2D = gaussian_2D / (2 * np.pi *sigma **2)
+    gaussian_2D = np.exp(-((distance - mu) ** 2) / (2 * sigma**2))
+    gaussian_2D = gaussian_2D / (2 * np.pi * sigma**2)
 
     # normalize part (mathematically)
     if normalize:
@@ -154,33 +123,38 @@ def get_gaussian_kernel(k=3, mu=0, sigma=1, normalize=True):
 
 
 # TODO use tiff image format instead of np files, more universal to transfer, and use integer based strength instead of float
-def nn_hits_2_np_images(letter_hits: torch.Tensor, stride: int, tw_letters: list[str], nn_letters: list[str], letters_per_pixel: int) -> tuple[np.ndarray, np.array]:
+def nn_hits_2_np_images(
+    letter_hits: torch.Tensor,
+    stride: int,
+    tw_letters: list[str],
+    nn_letters: list[str],
+    letters_per_pixel: int,
+) -> tuple[np.ndarray, np.array]:
     """
     letter_hits: np array with values in range [0., 1.]
     stride: int, convolution stride used in creating letter_hits
     tw_letters: list of letters available for typewriter
     nn_letters: list of letters used by neural net, subset of tw
     letters_per_pixel: amount of overlayed letters for one output pixel
-    """ 
+    """
     # assert letter_hits are in range [0., 1.]
-    assert(np.max(letter_hits)<= 1. and np.min(letter_hits >= 0.))   
+    assert np.max(letter_hits) <= 1.0 and np.min(letter_hits >= 0.0)
     # assert nn_letters are a subset of tw_letters
-    assert(set(tw_letters).issuperset(set(nn_letters)))
+    assert set(tw_letters).issuperset(set(nn_letters))
     letter_channels, h_nn, w_nn = letter_hits.shape
     # assert letter_hits has the correct amount of channels
-    assert(letter_channels == len(nn_letters))
+    assert letter_channels == len(nn_letters)
 
-    letter_hits_upscaled = np.zeros((letter_channels,  h_nn*stride, w_nn*stride))
-    letter_hits_upscaled[:, ::stride, :: stride] = letter_hits.detach().cpu().numpy()
+    letter_hits_upscaled = np.zeros((letter_channels, h_nn * stride, w_nn * stride))
+    letter_hits_upscaled[:, ::stride, ::stride] = letter_hits.detach().cpu().numpy()
 
     # convert letter hits to two matrices one for letter index, one for strength of that letter
-    output_np_strength = np.zeros((letters_per_pixel, h_nn*stride, w_nn*stride), dtype=np.uint8)
-    output_np_letter = np.zeros_like(output_np_strength,dtype=np.uint8)
+    output_np_strength = np.zeros((letters_per_pixel, h_nn * stride, w_nn * stride), dtype=np.uint8)
+    output_np_letter = np.zeros_like(output_np_strength, dtype=np.uint8)
 
     indices_map = {}
     for nn_index, nn_letter in enumerate(nn_letters):
         indices_map[nn_index] = tw_letters.index(nn_letter)
-    
 
     for letter_index_nn in range(letter_channels):
         channel_mat_nn = letter_hits_upscaled[letter_index_nn]
@@ -201,6 +175,6 @@ def np_2_bytes(np_arr: np.ndarray) -> bytes:
     """
     returns letter bytes and strength bytes to be easily transfered
     """
-    success, np_encode =  cv2.imencode('.tiff', np_arr)
-    assert(success)
+    success, np_encode = cv2.imencode(".tiff", np_arr)
+    assert success
     return np_encode.tobytes()

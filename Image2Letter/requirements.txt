@@ -1,13 +1,11 @@
-dvc==3.2.4
-dvc-gdrive==2.20.0
 numpy==1.25.0
 torch==2.1.0
 torchvision==0.16
-requests==2.31.0
 Pillow==10.0.0
 opencv-python==4.8.0.76
 matplotlib==3.7.2
-ipykernel==6.25.1
 lightning==2.0.8
 mlflow==2.7.0
-ray==2.6.3
+dvc==3.2.4
+dvc-gdrive==2.20.0
+requests==2.31.0
