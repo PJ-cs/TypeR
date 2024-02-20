@@ -1,5 +1,5 @@
 [project]
-name = "your-package-name"
+name = "image2letter"
 version = "0.0.1"
-description = "A brief description of your package"
-authors = []
+description = "A tool to convert your images to a an image consisting of letters of a typewrite"
+authors = [{name = "Peter J"}]

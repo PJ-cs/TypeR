@@ -8,7 +8,7 @@ import random
 import pytorch_lightning as pl
 from utils import set_seeds
 from pathlib import Path
-import image2letterAI.config as configFile
+import image2letterPackage.config as configFile
 import requests
 
 

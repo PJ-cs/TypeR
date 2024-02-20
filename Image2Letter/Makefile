@@ -1,4 +1,4 @@
-.PHONY: venv-dev venv ensure-venv isort black mypy flake8 lint test dvc-push
+.PHONY: venv-dev venv ensure-venv lint test dvc-push
 .ONESHELL:
 
 # Load environment variables from .env file if it exists
@@ -32,19 +32,12 @@ venv: requirements.txt  ## Create virtual environment
 	$(PYTHON) -m pip install -r requirements.txt
 	$(PYTHON) -m pip install -e .
 
-isort: ensure-venv
-	$(PYTHON) -m isort .
-
-black: ensure-venv
-	$(PYTHON) -m black --line-length=120 .
-
 mypy: ensure-venv
 	$(PYTHON) -m mypy . --ignore-missing-imports --follow-imports=skip --strict-optional
 
-flake8: ensure-venv
-	$(PYTHON) -m flake8 .
-
-lint: isort black mypy flake8
+lint: ensure-venv
+	ruff format .
+	ruff check .
 
 test: ensure-venv  ## Run tests
 	$(PYTHON) -m pytest

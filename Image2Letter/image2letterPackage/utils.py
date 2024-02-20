@@ -23,7 +23,9 @@ def load_letter_conv_weights(font_path: str, kernel_size: int, letters: list[str
     """loads the font from the file path specified in the config
     and creates the transposed convolutions from it"""
 
-    font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size * 0.88))
+    font: ImageFont.FreeTypeFont = ImageFont.truetype(
+        font=font_path, size=int(kernel_size * 0.88)
+    )
 
     transform = transforms.Compose([transforms.PILToTensor()])
 
@@ -47,8 +49,12 @@ def load_letter_conv_weights(font_path: str, kernel_size: int, letters: list[str
     return torch.stack(convolutions).unsqueeze(1)
 
 
-def get_rel_area_letters(font_path: str, kernel_size: int, letters: list[str]) -> list[float]:
-    font: ImageFont.FreeTypeFont = ImageFont.truetype(font=font_path, size=int(kernel_size * 0.88))
+def get_rel_area_letters(
+    font_path: str, kernel_size: int, letters: list[str]
+) -> list[float]:
+    font: ImageFont.FreeTypeFont = ImageFont.truetype(
+        font=font_path, size=int(kernel_size * 0.88)
+    )
 
     transform = transforms.Compose([transforms.PILToTensor()])
 
@@ -149,7 +155,9 @@ def nn_hits_2_np_images(
     letter_hits_upscaled[:, ::stride, ::stride] = letter_hits.detach().cpu().numpy()
 
     # convert letter hits to two matrices one for letter index, one for strength of that letter
-    output_np_strength = np.zeros((letters_per_pixel, h_nn * stride, w_nn * stride), dtype=np.uint8)
+    output_np_strength = np.zeros(
+        (letters_per_pixel, h_nn * stride, w_nn * stride), dtype=np.uint8
+    )
     output_np_letter = np.zeros_like(output_np_strength, dtype=np.uint8)
 
     indices_map = {}
@@ -164,8 +172,12 @@ def nn_hits_2_np_images(
                 break
             output_channel = output_np_strength[out_channel_num]
             valid_pixel_mask = output_channel <= 0 and channel_mat_nn > 0
-            output_np_strength[out_channel_num][valid_pixel_mask] = channel_mat_nn[valid_pixel_mask] * 255
-            output_np_letter[out_channel_num][valid_pixel_mask] = indices_map[letter_index_nn]
+            output_np_strength[out_channel_num][valid_pixel_mask] = (
+                channel_mat_nn[valid_pixel_mask] * 255
+            )
+            output_np_letter[out_channel_num][valid_pixel_mask] = indices_map[
+                letter_index_nn
+            ]
             channel_mat_nn[valid_pixel_mask] = 0
 
     return output_np_letter, output_np_strength
