@@ -123,9 +123,15 @@ class BigImagesDataModule(pl.LightningDataModule):
         set_seeds()
 
     def setup(self, stage: str) -> None:
-        dataset_train_full = BigImagesDataset(self.imgs_dir, self.transform_img_train, self.transform_target_train)
-        datset_val_full = BigImagesDataset(self.imgs_dir, self.transform_img_val, self.transform_target_val)
-        datset_test_full = BigImagesDataset(self.imgs_dir, self.transform_img_test, self.transform_target_test)
+        dataset_train_full = BigImagesDataset(
+            self.imgs_dir, self.transform_img_train, self.transform_target_train
+        )
+        datset_val_full = BigImagesDataset(
+            self.imgs_dir, self.transform_img_val, self.transform_target_val
+        )
+        datset_test_full = BigImagesDataset(
+            self.imgs_dir, self.transform_img_test, self.transform_target_test
+        )
 
         train_indices, val_indices, test_indices = train_val_test_split(
             len(dataset_train_full), self.val_ratio, self.test_ratio
@@ -146,10 +152,14 @@ class BigImagesDataModule(pl.LightningDataModule):
         )
 
     def val_dataloader(self):
-        return DataLoader(self.ds_val, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.ds_val, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
     def test_dataloader(self):
-        return DataLoader(self.ds_test, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.ds_test, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
     # TODO for distributed training on multiple nodes to get data
     def prepare_data(self) -> None:
@@ -162,16 +172,22 @@ class BigImagesDataModule(pl.LightningDataModule):
 def elt_data():
     """Extract, load and transform our data assets."""
     # Extract + Load
-    url_file_paths: list[str] = [file.path for file in os.scandir(configFile.IMAGES_URL_DIR)]
+    url_file_paths: list[str] = [
+        file.path for file in os.scandir(configFile.IMAGES_URL_DIR)
+    ]
     # courtesy to https://pyimagesearch.com/2017/12/04/how-to-create-a-deep-learning-dataset-using-google-images/
     for url_file in url_file_paths:
         links = open(url_file).read().strip().split("\n")
-        output_path = Path(configFile.TRAINING_IMGS_DIR, os.path.basename(url_file)[:-4])
+        output_path = Path(
+            configFile.TRAINING_IMGS_DIR, os.path.basename(url_file)[:-4]
+        )
         os.makedirs(output_path, exist_ok=True)
         total = 0
         for url in links:
             try:
-                p = os.path.sep.join([str(output_path), "{}.jpg".format(str(total).zfill(8))])
+                p = os.path.sep.join(
+                    [str(output_path), "{}.jpg".format(str(total).zfill(8))]
+                )
                 if os.path.exists(p):
                     continue
                 # try to download the image
