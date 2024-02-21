@@ -43,5 +43,5 @@ test: ensure-venv  ## Run tests
 	$(PYTHON) -m pytest
 
 dvc-push: 
-	dvc add data
+	dvc add .data
 	dvc push

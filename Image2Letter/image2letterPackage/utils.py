@@ -1,22 +1,9 @@
 import numpy as np
-import random
 import torch
 import PIL.ImageFont as ImageFont
 from PIL import Image, ImageDraw
 import torchvision.transforms as transforms
-import os
 import cv2
-
-
-def set_seeds(seed=42):
-    """Set seeds for reproducibility."""
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    eval("setattr(torch.backends.cudnn, 'deterministic', True)")
-    eval("setattr(torch.backends.cudnn, 'benchmark', False)")
-    os.environ["PYTHONHASHSEED"] = str(seed)
 
 
 def load_letter_conv_weights(font_path: str, kernel_size: int, letters: list[str]):
@@ -137,19 +124,14 @@ def nn_hits_2_np_images(
     letters_per_pixel: int,
 ) -> tuple[np.ndarray, np.array]:
     """
-    letter_hits: np array with values in range [0., 1.]
+    letter_hits: np array with values in range [0., 1.], #nn_letters channels
     stride: int, convolution stride used in creating letter_hits
     tw_letters: list of letters available for typewriter
     nn_letters: list of letters used by neural net, subset of tw
     letters_per_pixel: amount of overlayed letters for one output pixel
     """
-    # assert letter_hits are in range [0., 1.]
-    assert np.max(letter_hits) <= 1.0 and np.min(letter_hits >= 0.0)
-    # assert nn_letters are a subset of tw_letters
-    assert set(tw_letters).issuperset(set(nn_letters))
+
     letter_channels, h_nn, w_nn = letter_hits.shape
-    # assert letter_hits has the correct amount of channels
-    assert letter_channels == len(nn_letters)
 
     letter_hits_upscaled = np.zeros((letter_channels, h_nn * stride, w_nn * stride))
     letter_hits_upscaled[:, ::stride, ::stride] = letter_hits.detach().cpu().numpy()
