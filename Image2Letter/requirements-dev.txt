@@ -3,3 +3,4 @@ pytest-cov == 4.1.0
 ipykernel==6.25.1
 ruff==0.2.2
 python-dotenv==1.0.1
+pytest-html==4.1.1

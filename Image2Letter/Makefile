@@ -40,7 +40,8 @@ lint: ensure-venv
 	ruff check .
 
 test: ensure-venv  ## Run tests
-	$(PYTHON) -m pytest
+	$(PYTHON) -m pytest -v --html=.data/testFiles/report.html --css=.data/testFiles/assets/style.css
+	firefox .data/testFiles/report.html
 
 dvc-push: 
 	dvc add .data

@@ -1,11 +1,8 @@
 import os
 from torchvision.io import read_image, ImageReadMode
-from torch.utils.data import Dataset, Subset, DataLoader
+from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import v2
 import torch
-import numpy as np
-import pytorch_lightning as pl
-from utils import set_seeds
 from pathlib import Path
 import requests
 
