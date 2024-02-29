@@ -93,7 +93,7 @@ class LetterFilter(nn.Module):
             )
             self.transp_conv.to(self.device)
 
-    def forward(self, input_img: torch.Tensor):
+    def forward(self, input_img: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             B = input_img.shape[0]
 
